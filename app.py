@@ -6,13 +6,15 @@ from langchain.chains import RetrievalQA
 from langchain.document_loaders import PyPDFLoader
 import tempfile
 
-st.set_page_config(page_title="📄 PDF Q&A Bot", page_icon="🤖")
+st.set_page_config(page_title="📄 PDF Q&A Bot", page_icon="🤖", layout="wide")
 
 st.title("📄 Chat with Your PDF (FAISS version)")
 st.write("Upload a PDF and ask questions about it using OpenAI + FAISS.")
 
-# Upload PDF
-uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+# Sidebar for file upload
+with st.sidebar:
+    st.header("Upload PDF")
+    uploaded_file = st.file_uploader("Choose a PDF", type="pdf")
 
 if uploaded_file:
     # Save uploaded file temporarily
@@ -39,8 +41,15 @@ if uploaded_file:
     st.success("✅ PDF processed! You can now ask questions.")
 
     # 4. Chat interface
-    query = st.text_input("Ask a question about the PDF:")
-    if query:
-        with st.spinner("Thinking..."):
-            answer = qa_chain.run(query)
-        st.markdown(f"**Answer:** {answer}")
+    # Two columns: left (questions), right (answers)
+    col1, col2 = st.columns([2, 3])
+
+    with col1:
+        query = st.text_input("Ask a question:")
+
+    with col2:
+        st.subheader("Answer will appear here 👇")
+        if query:
+            with st.spinner("Thinking..."):
+                answer = qa_chain.run(query)
+            st.markdown(f"**Answer:** {answer}")
