@@ -1,2 +1,7 @@
 logs/*
 PS/Instructions/*
+surveyapp/lib*
+surveyapp/bin/*
+surveyapp/pip*
+surveyapp/pyvenv*
+surveyapp/app/PS*

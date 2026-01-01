@@ -10,8 +10,13 @@ Place these files in the same directory as `app.py` (or update the paths in the 
 - `PS_SurveyDefinition.rtf` (RTF container holding JSON survey definition)
 
 ## Setup
-Create a virtual environment (recommended), then:
+Create and activate virtual environment (recommended)
+```bash
+python -m venv surveyapp
+source surveyapp/bin/activate
+```
 
+then:
 ```bash
 pip install -r requirements.txt
 ```

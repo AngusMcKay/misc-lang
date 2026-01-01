@@ -1,0 +1,7 @@
+streamlit>=1.32
+pandas>=2.0
+openpyxl>=3.1
+duckdb>=1.0
+plotly>=5.20
+langchain-openai>=0.2.0
+tabulate>=0.9
