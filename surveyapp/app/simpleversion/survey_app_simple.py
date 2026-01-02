@@ -191,9 +191,9 @@ def auto_chart(df: pd.DataFrame) -> None:
         c = df.columns[0]
         vc = df[c].value_counts(dropna=False).reset_index()
         vc.columns = [c, "count"]
-        st.plotly_chart(px.bar(vc, x=c, y="count"), use_container_width=True)
+        st.plotly_chart(px.bar(vc, x=c, y="count"), use_container_width=True, key=f"auto_chart_{id(vc)}")
     elif df.shape[1] >= 2 and pd.api.types.is_numeric_dtype(df[df.columns[1]]):
-        st.plotly_chart(px.bar(df, x=df.columns[0], y=df.columns[1]), use_container_width=True)
+        st.plotly_chart(px.bar(df, x=df.columns[0], y=df.columns[1]), use_container_width=True, key=f"auto_chart_{id(df)}")
 
 # -----------------------------
 # Aggregation queries for dashboard
@@ -269,8 +269,12 @@ def checkbox_chart_data(con, pairs: List[Tuple[str, str]]) -> pd.DataFrame:
 # -----------------------------
 # UI
 # -----------------------------
-st.sidebar.header("Data")
-responses_path = st.sidebar.text_input("responses.parquet", value="prepared_simple/responses.parquet")
+#st.write(st.session_state)
+st.sidebar.header("Function selection")
+page = st.sidebar.radio("Toggle between dashboard and Q&A pages", ["Dashboard", "Q&A"], index=0)
+
+st.sidebar.header("Data and definition paths")
+responses_path = st.sidebar.text_input("Survey response path (parquet)", value="prepared_simple/responses.parquet")
 surveydef_path = st.sidebar.text_input("Survey definition JSON (optional, for question-type charts)", value="PS_SurveyDefinition.json")
 
 con, sql_to_header = build_duckdb_from_parquet(responses_path)
@@ -283,8 +287,6 @@ if surveydef_path and Path(surveydef_path).exists():
         questions = build_questions(defn)
     except Exception as e:
         st.sidebar.warning(f"Could not parse survey definition JSON: {e}")
-
-page = st.sidebar.radio("Page", ["Dashboard", "Q&A"], index=0)
 
 if page == "Dashboard":
     st.title("Survey Dashboard")
@@ -302,7 +304,19 @@ if page == "Dashboard":
                 available.append(qq)
         available.sort(key=lambda x: x.name)
 
-        q_sel = st.selectbox("Question", options=available, format_func=lambda qq: f"{qq.name} - {qq.title}")
+        # Use stable string options and session_state so selection persists across page switches
+        option_labels = [f"{qq.name} - {qq.title}" for qq in available]
+        label_to_q = {lbl: qq for lbl, qq in zip(option_labels, available)}
+
+        # Normalise any prior session_state value to a valid label
+        DEFAULT_VARIABLE = "CC1 - Over the next 12 months, do you think Australia's economy, as a whole, will…"
+        prev = st.session_state.get("q_sel_name")
+        if not isinstance(prev, str) or prev not in option_labels:
+            # set default
+            st.session_state["q_sel_name"] = DEFAULT_VARIABLE #option_labels[0] if option_labels else None
+
+        sel_label = st.selectbox("Question", options=option_labels, key="q_sel_name")
+        q_sel = label_to_q.get(sel_label)
 
         chart_type_wording = "Chart type (note: chart options depend on question type)"
         if q_sel:
@@ -319,7 +333,7 @@ if page == "Dashboard":
                     else:
                         y = "count"
                     fig = px.bar(dfm, x="row", y=y, color="response", barmode="stack")
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"q_chart_matrix_{q_sel.name}_{mode.replace(' ', '_')}")
 
             elif q_sel.qtype == "checkbox":
                 _, pairs = find_question_sql_cols(sql_to_header, q_sel)
@@ -330,7 +344,7 @@ if page == "Dashboard":
                     mode = st.radio(chart_type_wording, ["Count", "Proportion"], horizontal=True, key="cb_mode")
                     y = "count" if mode == "Count" else "proportion"
                     fig = px.bar(dfc.sort_values(y, ascending=False), x="choice", y=y)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"q_chart_checkbox_{q_sel.name}_{mode.replace(' ', '_')}")
 
             else:
                 single, _ = find_question_sql_cols(sql_to_header, q_sel)
@@ -347,7 +361,7 @@ if page == "Dashboard":
                         else:
                             # histogram-like categorical distribution (counts)
                             fig = px.bar(dfc, x="option", y="count")
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, key=f"q_chart_single_{q_sel.name}_{mode.replace(' ', '_')}")
 
     st.divider()
 
@@ -357,8 +371,26 @@ if page == "Dashboard":
     headers = [sql_to_header[c] for c in user_sql_cols]
     header_to_sql = {sql_to_header[c]: c for c in user_sql_cols}
 
-    primary_h = st.selectbox("Primary column", options=headers, index=0)
-    secondary_h = st.selectbox("Secondary column (optional)", options=["(none)"] + headers, index=0)
+    # Hardcoded defaults (change here if you want different initial behaviour)
+    DEFAULT_PRIMARY = "CC1 - Over the next 12 months, do you think Australia's economy, as a whole, will…" #headers[0] if headers else None
+    DEFAULT_SECONDARY = "PD5_18A - What is your view of each of the following?_Prime Minister – Anthony Albanese"
+    DEFAULT_CHART_TYPE = "Bar"         # used when no secondary selected
+    DEFAULT_STACKED_MODE = "100% Stacked"   # used when secondary is selected
+
+    # Initialize session_state with hardcoded defaults (preserve across reruns/page switches)
+    if "primary_h" not in st.session_state or st.session_state.get("primary_h") not in headers:
+        st.session_state["primary_h"] = DEFAULT_PRIMARY
+    if "secondary_h" not in st.session_state or st.session_state.get("secondary_h") not in ["(none)"] + headers:
+        st.session_state["secondary_h"] = DEFAULT_SECONDARY
+    if "chart_type" not in st.session_state:
+        st.session_state["chart_type"] = DEFAULT_CHART_TYPE
+    if "stacked_mode" not in st.session_state:
+        st.session_state["stacked_mode"] = DEFAULT_STACKED_MODE
+
+    # Primary / Secondary selectors: rely on session_state defaults, do not pass index/default to avoid conflict
+    secondary_options = ["(none)"] + headers
+    primary_h = st.selectbox("Primary column", options=headers, key="primary_h")
+    secondary_h = st.selectbox("Secondary column (optional)", options=secondary_options, key="secondary_h")
 
     # below: filters (left) and chart (right)
     left, right = st.columns([1, 2], gap="large")
@@ -366,10 +398,10 @@ if page == "Dashboard":
     with left:
         # control row: show chart-type when no secondary selected, else show stacked-mode
         if secondary_h == "(none)":
-            chart_type = st.radio("Chart type", ["Bar", "Pie"], horizontal=True)
+            chart_type = st.radio("Chart type", ["Bar", "Pie"], horizontal=True, key="chart_type")
             stacked_mode = None
         else:
-            stacked_mode = st.radio("Stack mode", ["Stacked", "100% Stacked"], horizontal=True)
+            stacked_mode = st.radio("Stack mode", ["Stacked", "100% Stacked"], horizontal=True, key="stacked_mode")
             chart_type = None
 
         st.subheader("Filters")
@@ -393,7 +425,7 @@ if page == "Dashboard":
                     fig = px.pie(dfc, names="option", values="count")
                 else:
                     fig = px.bar(dfc, x="option", y="count")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=f"combine_chart_{id(fig)}")
         else:
             secondary = header_to_sql[secondary_h]
             dfxy = agg_crosstab(con, primary, secondary, filters)
@@ -406,52 +438,60 @@ if page == "Dashboard":
                 else:
                     y = "count"
                 fig = px.bar(dfxy, x="x", y=y, color="y", barmode="stack")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=f"combine_chart_{id(fig)}")
 
 else:
     st.title("Survey Q&A")
 
-    st.caption("Schema context is capped to keep prompts stable. Increase if needed.")
-    cap = st.slider("Max columns in schema context", 30, min(600, len(user_sql_cols)), min(220, len(user_sql_cols)), 10)
+    #st.caption("Schema context is capped to keep prompts stable. Increase if needed.")
+    cap = 1000 #st.slider("Max columns in schema context", 30, min(600, len(user_sql_cols)), min(220, len(user_sql_cols)), 10)
     schema_cols = user_sql_cols[:cap]
     schema_for_llm = build_schema_context(con, schema_cols, sql_to_header, for_llm=True)
     schema_preview = build_schema_context(con, schema_cols, sql_to_header, for_llm=False)
 
-    with st.expander("Schema context (preview)"):
+    with st.expander("Schema context (expand to see survey questions to help decide what to ask)"):
         st.text(schema_preview)
 
-    question = st.text_area("Question", height=120)
-    if st.button("Run", type="primary", disabled=not question.strip()):
+    # put the question + run button in a form so Ctrl+Enter submits as well as clicking Run
+    with st.form("qa_form", clear_on_submit=False):
+        # use a key so the text is persisted in session_state
+        question = st.text_area("Question", height=120, key="qa_question")
+        submit = st.form_submit_button("Run")
+
+    if submit and question.strip():
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         prompt = f"{SYSTEM_SQL}\n\nSCHEMA:\n{schema_for_llm}\n\nQUESTION:\n{question}\n"
         sql_raw = llm.invoke(prompt).content
+    else:
+        sql_raw = None
 
-        try:
+    if sql_raw:
+         try:
             sql_valid = validate_sql(sql_raw)
             res = con.execute(sql_valid).fetchdf()
-        except Exception as e:
-            st.error(f"Failed to execute SQL: {e}")
-            with st.expander("Show model output"):
-                st.code(sql_raw, language="text")
-            with st.expander("Show SQL we tried"):
-                st.code(extract_sql(sql_raw), language="sql")
-            st.stop()
-
-        st.subheader("Answer")
-        preview_csv = res.head(50).to_csv(index=False)
-        answer_prompt = (
-            "You are a survey data analyst. Answer the user's question using ONLY the query result table provided. "
-            "Be concise and specific. If the result table is aggregated, interpret it. "
-            "If you cannot answer from the table, say what is missing.\n\n"
-            f"QUESTION:\n{question}\n\nRESULT_TABLE_CSV (first 50 rows):\n{preview_csv}"
-        )
-        answer = llm.invoke(answer_prompt).content
-        st.write(answer)
-
-        st.subheader("Result table")
-        st.dataframe(res, use_container_width=True)
-        with st.expander("Auto chart"):
-            auto_chart(res)
-
-        with st.expander("Show SQL"):
-            st.code(sql_valid, language="sql")
+         except Exception as e:
+             st.error(f"Failed to execute SQL: {e}")
+             with st.expander("Show model output"):
+                 st.code(sql_raw, language="text")
+             with st.expander("Show SQL we tried"):
+                 st.code(extract_sql(sql_raw), language="sql")
+             st.stop()
+ 
+         st.subheader("Answer")
+         preview_csv = res.head(50).to_csv(index=False)
+         answer_prompt = (
+             "You are a survey data analyst. Answer the user's question using ONLY the query result table provided. "
+             "Be concise and specific. If the result table is aggregated, interpret it. "
+             "If you cannot answer from the table, say what is missing.\n\n"
+             f"QUESTION:\n{question}\n\nRESULT_TABLE_CSV (first 50 rows):\n{preview_csv}"
+         )
+         answer = llm.invoke(answer_prompt).content
+         st.write(answer)
+ 
+         st.subheader("Result table")
+         st.dataframe(res, use_container_width=True)
+         with st.expander("Auto chart (chart only shown if applicable)"):
+             auto_chart(res)
+ 
+         with st.expander("Show SQL"):
+             st.code(sql_valid, language="sql")
