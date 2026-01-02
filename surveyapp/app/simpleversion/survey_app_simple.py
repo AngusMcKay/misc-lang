@@ -184,6 +184,15 @@ def validate_sql(sql: str) -> str:
         raise ValueError("Query must reference responses.")
     return s + ";"
 
+def _sql_literal(val: Any) -> str:
+    """Escape a Python value for safe use as a SQL string literal in f-strings."""
+    if val is None:
+        return "NULL"
+    s = str(val)
+    # escape single quotes by doubling them for SQL string literal safety
+    s = s.replace("'", "''")
+    return f"'{s}'"
+
 def auto_chart(df: pd.DataFrame) -> None:
     if df is None or df.empty:
         return
@@ -244,7 +253,10 @@ def find_question_sql_cols(sql_to_header: Dict[str, str], q: SurveyQuestion) -> 
 def matrix_chart_data(con, pairs: List[Tuple[str, str]]) -> pd.DataFrame:
     parts = []
     for row_label, col in pairs:
-        parts.append(f"SELECT '{row_label}' AS row, {col} AS response, COUNT(*) AS count FROM responses WHERE {col} IS NOT NULL GROUP BY 2")
+        parts.append(
+            f"SELECT {_sql_literal(row_label)} AS row, {col} AS response, COUNT(*) AS count "
+            f"FROM responses WHERE {col} IS NOT NULL GROUP BY 2"
+        )
     if not parts:
         return pd.DataFrame(columns=["row", "response", "count"])
     q = " UNION ALL ".join(parts)
@@ -254,7 +266,7 @@ def checkbox_chart_data(con, pairs: List[Tuple[str, str]]) -> pd.DataFrame:
     parts = []
     for choice_label, col in pairs:
         parts.append(
-            f"SELECT '{choice_label}' AS choice, "
+            f"SELECT {_sql_literal(choice_label)} AS choice, "
             f"SUM(CASE WHEN {col} THEN 1 ELSE 0 END) AS count, "
             f"COUNT(*) AS total "
             f"FROM responses"
