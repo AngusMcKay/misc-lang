@@ -3,24 +3,12 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Optional
 from pathlib import Path
-import hashlib
-import json as _json
 
 import duckdb
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 from langchain_openai import ChatOpenAI
-
-def _dash_cache_get(key: str):
-    return st.session_state.get(f"dash_cache::{key}")
-
-def _dash_cache_set(key: str, value: Any):
-    st.session_state[f"dash_cache::{key}"] = value
-
-def _filters_key(obj: Any) -> str:
-    s = _json.dumps(obj, sort_keys=True, default=str)
-    return hashlib.md5(s.encode("utf-8")).hexdigest()
 
 st.set_page_config(page_title="Survey Explorer", layout="wide")
 
@@ -40,7 +28,7 @@ class SurveyQuestion:
 
 def load_survey_definition_json(path: str) -> Dict[str, Any]:
     txt = Path(path).read_text(encoding="utf-8", errors="ignore")
-    txt = re.sub(r"[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]", " ", txt) # gets rid of spacing introduced by the rtf format
+    txt = re.sub(r"[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000]", " ", txt) # gets rid of spacing introduced by the rtf format
     return json.loads(txt)
 
 def _choice_values(raw: Any) -> List[str]:
@@ -281,18 +269,6 @@ def checkbox_chart_data(con, pairs: List[Tuple[str, str]]) -> pd.DataFrame:
 # -----------------------------
 # UI
 # -----------------------------
-st.write(st.session_state)
-
-# initialize persistent state keys
-if "qa_question" not in st.session_state:
-    st.session_state["qa_question"] = ""
-if "qa_sql" not in st.session_state:
-    st.session_state["qa_sql"] = ""
-if "qa_res" not in st.session_state:
-    st.session_state["qa_res"] = None
-if "qa_answer" not in st.session_state:
-    st.session_state["qa_answer"] = ""
-
 st.sidebar.header("Data")
 responses_path = st.sidebar.text_input("responses.parquet", value="prepared_simple/responses.parquet")
 surveydef_path = st.sidebar.text_input("Survey definition JSON (optional, for question-type charts)", value="PS_SurveyDefinition.json")
@@ -326,27 +302,13 @@ if page == "Dashboard":
                 available.append(qq)
         available.sort(key=lambda x: x.name)
 
-        # Use stable string options so Streamlit can reliably persist the selection
-        option_labels = [f"{qq.name} - {qq.title}" for qq in available]
-        label_to_q = {lbl: qq for lbl, qq in zip(option_labels, available)}
-
-        # normalise prior session state value to a valid label (avoid stale/non-string values)
-        prev = st.session_state.get("q_sel_name")
-        if not isinstance(prev, str) or prev not in option_labels:
-            st.session_state["q_sel_name"] = option_labels[0] if option_labels else None
-        sel_index = option_labels.index(st.session_state["q_sel_name"]) if option_labels else 0
-        sel_label = st.selectbox("Question", options=option_labels, index=sel_index, key="q_sel_name")
-        q_sel = label_to_q.get(sel_label)
+        q_sel = st.selectbox("Question", options=available, format_func=lambda qq: f"{qq.name} - {qq.title}")
 
         chart_type_wording = "Chart type (note: chart options depend on question type)"
         if q_sel:
             if q_sel.qtype == "matrix":
                 _, pairs = find_question_sql_cols(sql_to_header, q_sel)
-                cache_key = f"matrix::{q_sel.name}::{_filters_key(pairs)}"
-                dfm = _dash_cache_get(cache_key)
-                if dfm is None:
-                    dfm = matrix_chart_data(con, pairs)
-                    _dash_cache_set(cache_key, dfm)
+                dfm = matrix_chart_data(con, pairs)
                 if dfm.empty:
                     st.warning("No data found for this matrix question.")
                 else:
@@ -375,11 +337,7 @@ if page == "Dashboard":
                 if not single:
                     st.warning("No matching column found for this question in the dataset.")
                 else:
-                    cache_key = f"counts::{single}::{_filters_key([])}"
-                    dfc = _dash_cache_get(cache_key)
-                    if dfc is None:
-                        dfc = agg_counts(con, single, filters=[])
-                        _dash_cache_set(cache_key, dfc)
+                    dfc = agg_counts(con, single, filters=[])
                     if dfc.empty:
                         st.warning("No data found for this question.")
                     else:
@@ -395,77 +353,50 @@ if page == "Dashboard":
 
     st.subheader("Combine and filter questions")
     st.caption("Note that in this section each multi select question type has a selection for each possible choice/row in the survey. This allows you to view, for example, if people who selected that they were part of a political party (D18A) are more or less likely to think favourably of Ursula Von Der Leyen (selectable from PI5B).")
+
+    headers = [sql_to_header[c] for c in user_sql_cols]
+    header_to_sql = {sql_to_header[c]: c for c in user_sql_cols}
+
+    primary_h = st.selectbox("Primary column", options=headers, index=0)
+    secondary_h = st.selectbox("Secondary column (optional)", options=["(none)"] + headers, index=0)
+
+    # below: filters (left) and chart (right)
     left, right = st.columns([1, 2], gap="large")
 
     with left:
-        headers = [sql_to_header[c] for c in user_sql_cols]
-        header_to_sql = {sql_to_header[c]: c for c in user_sql_cols}
-
-        # ensure stored primary/secondary selection is valid (preserve across page switches)
-        prev_primary = st.session_state.get("primary_h")
-        if not isinstance(prev_primary, str) or prev_primary not in headers:
-            st.session_state["primary_h"] = headers[0] if headers else None
-        primary_h = st.selectbox(
-            "Primary column",
-            options=headers,
-            index=headers.index(st.session_state["primary_h"]) if headers else 0,
-            key="primary_h",
-        )
-        chart_type = st.radio("Chart type", ["Bar", "Pie"], horizontal=True, key="chart_type")
-
-        options_secondary = ["(none)"] + headers
-        prev_secondary = st.session_state.get("secondary_h")
-        if not isinstance(prev_secondary, str) or prev_secondary not in options_secondary:
-            st.session_state["secondary_h"] = "(none)"
-        secondary_h = st.selectbox(
-            "Secondary column (optional)",
-            options=options_secondary,
-            index=options_secondary.index(st.session_state["secondary_h"]),
-            key="secondary_h",
-        )
+        # control row: show chart-type when no secondary selected, else show stacked-mode
+        if secondary_h == "(none)":
+            chart_type = st.radio("Chart type", ["Bar", "Pie"], horizontal=True)
+            stacked_mode = None
+        else:
+            stacked_mode = st.radio("Stack mode", ["Stacked", "100% Stacked"], horizontal=True)
+            chart_type = None
 
         st.subheader("Filters")
         filters: List[Tuple[str, List[str]]] = []
         for i in range(3):
-            f_options = ["(none)"] + headers
-            f_key = f"fcol_{i}"
-            prev_f = st.session_state.get(f_key)
-            if not isinstance(prev_f, str) or prev_f not in f_options:
-                st.session_state[f_key] = "(none)"
-            f_h = st.selectbox(f"Filter {i+1} column", options=f_options, index=f_options.index(st.session_state[f_key]), key=f_key)
+            f_h = st.selectbox(f"Filter {i+1} column", options=["(none)"] + headers, index=0, key=f"fcol_{i}")
             if f_h != "(none)":
                 f_sql = header_to_sql[f_h]
                 vals = [str(v) for v in fetch_distinct_values(con, f_sql, limit=200)]
-                # restore previous multiselect choices if still valid
-                prev_vals = st.session_state.get(f"fval_{i}", vals)
-                if isinstance(prev_vals, list):
-                    default_vals = [v for v in prev_vals if v in vals] or vals
-                else:
-                    default_vals = vals
-                sel = st.multiselect(f"Filter {i+1} values", options=vals, default=default_vals, key=f"fval_{i}")
+                sel = st.multiselect(f"Filter {i+1} values", options=vals, default=vals, key=f"fval_{i}")
                 filters.append((f_sql, sel))
 
     with right:
-        header_to_sql = {sql_to_header[c]: c for c in user_sql_cols}
         primary = header_to_sql[primary_h]
         if secondary_h == "(none)":
-            cache_key = f"agg_counts::{primary}::{_filters_key(filters)}"
-            dfc = _dash_cache_get(cache_key)
-            if dfc is None:
-                dfc = agg_counts(con, primary, filters)
-                _dash_cache_set(cache_key, dfc)
+            dfc = agg_counts(con, primary, filters)
             if dfc.empty:
                 st.warning("No results for current filters.")
             else:
-                fig = px.pie(dfc, names="option", values="count") if chart_type == "Pie" else px.bar(dfc, x="option", y="count")
+                if chart_type == "Pie":
+                    fig = px.pie(dfc, names="option", values="count")
+                else:
+                    fig = px.bar(dfc, x="option", y="count")
                 st.plotly_chart(fig, use_container_width=True)
         else:
             secondary = header_to_sql[secondary_h]
-            cache_key = f"agg_crosstab::{primary}::{secondary}::{_filters_key(filters)}"
-            dfxy = _dash_cache_get(cache_key)
-            if dfxy is None:
-                dfxy = agg_crosstab(con, primary, secondary, filters)
-                _dash_cache_set(cache_key, dfxy)
+            dfxy = agg_crosstab(con, primary, secondary, filters)
             if dfxy.empty:
                 st.warning("No results for current filters.")
             else:
@@ -481,7 +412,7 @@ else:
     st.title("Survey Q&A")
 
     st.caption("Schema context is capped to keep prompts stable. Increase if needed.")
-    cap = st.slider("Max columns in schema context", 30, min(600, len(user_sql_cols)), min(220, len(user_sql_cols)), 10, key="schema_cap")
+    cap = st.slider("Max columns in schema context", 30, min(600, len(user_sql_cols)), min(220, len(user_sql_cols)), 10)
     schema_cols = user_sql_cols[:cap]
     schema_for_llm = build_schema_context(con, schema_cols, sql_to_header, for_llm=True)
     schema_preview = build_schema_context(con, schema_cols, sql_to_header, for_llm=False)
@@ -489,18 +420,7 @@ else:
     with st.expander("Schema context (preview)"):
         st.text(schema_preview)
 
-    # persist the question text across page switches
-    question = st.text_area("Question", height=120, key="qa_question")
-
-    # show previous result if present (so returning users see last run)
-    if st.session_state.get("qa_res") is not None:
-        st.subheader("Last run (restored)")
-        st.write(st.session_state.get("qa_answer", ""))
-        st.subheader("Result table")
-        st.dataframe(st.session_state["qa_res"], use_container_width=True)
-        with st.expander("Show SQL (last run)"):
-            st.code(st.session_state.get("qa_sql", ""), language="sql")
-
+    question = st.text_area("Question", height=120)
     if st.button("Run", type="primary", disabled=not question.strip()):
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         prompt = f"{SYSTEM_SQL}\n\nSCHEMA:\n{schema_for_llm}\n\nQUESTION:\n{question}\n"
@@ -517,12 +437,8 @@ else:
                 st.code(extract_sql(sql_raw), language="sql")
             st.stop()
 
-        # persist results so they survive page switches
-        st.session_state["qa_sql"] = sql_valid
-        st.session_state["qa_res"] = res
-        preview_csv = res.head(50).to_csv(index=False)
-
         st.subheader("Answer")
+        preview_csv = res.head(50).to_csv(index=False)
         answer_prompt = (
             "You are a survey data analyst. Answer the user's question using ONLY the query result table provided. "
             "Be concise and specific. If the result table is aggregated, interpret it. "
@@ -530,7 +446,6 @@ else:
             f"QUESTION:\n{question}\n\nRESULT_TABLE_CSV (first 50 rows):\n{preview_csv}"
         )
         answer = llm.invoke(answer_prompt).content
-        st.session_state["qa_answer"] = answer
         st.write(answer)
 
         st.subheader("Result table")
