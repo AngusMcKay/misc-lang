@@ -5,3 +5,8 @@ surveyapp/bin/*
 surveyapp/pip*
 surveyapp/pyvenv*
 surveyapp/app/PS*
+prepared/*
+*.xlsx
+*.csv
+*.parquet
+*.json

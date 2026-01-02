@@ -1,4 +1,3 @@
-
 import os
 import re
 import json
@@ -13,10 +12,23 @@ import plotly.express as px
 # Optional: OpenAI via LangChain (uses OPENAI_API_KEY / Streamlit secrets)
 from langchain_openai import ChatOpenAI
 
-
 # -----------------------------
 # Utilities: Survey definition
 # -----------------------------
+
+def _normalize_json_whitespace(txt: str) -> str:
+    """
+    Python's built-in json parser only treats ASCII whitespace as whitespace.
+    Some editors insert Unicode space separators (e.g., U+2006, U+2007) which break json.loads.
+    This normalizes common Unicode whitespace to regular spaces.
+    """
+    # Replace any Unicode 'space separator' characters with ASCII space
+    txt = re.sub(r"[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000]", " ", txt)
+    # Also normalize odd thin spaces that sometimes appear
+    txt = txt.replace("\uFEFF", "")  # BOM
+    return txt
+
+
 def _rtf_hex_unescape(s: str) -> str:
     """Convert RTF hex escapes like \\'96 into the corresponding cp1252 character."""
     def repl(m: re.Match) -> str:
@@ -136,6 +148,118 @@ def build_question_meta(survey_def: Dict[str, Any]) -> Dict[str, QuestionMeta]:
     return out
 
 
+
+def load_survey_definition_json(json_path: str) -> Dict[str, Any]:
+    """
+    Robust loader for survey definition.
+    Accepts:
+      - strict JSON
+      - JSON embedded in other text (extracts first {...})
+      - python-dict-like text (single quotes) via ast.literal_eval as a fallback
+    """
+    txt = open(json_path, "rb").read().decode("utf-8", errors="ignore")
+    txt = _normalize_json_whitespace(txt).strip()
+
+    # If there's leading junk, extract first JSON object.
+    try:
+        candidate = _extract_first_json_object(txt)
+    except Exception:
+        candidate = txt
+
+    # First attempt: strict JSON
+    try:
+        return json.loads(candidate)
+    except Exception:
+        pass
+
+    # Fallback: python literal (handles single quotes). Safer than eval.
+    try:
+        obj = ast.literal_eval(candidate)
+        if isinstance(obj, dict):
+            return obj
+        raise ValueError("Survey definition is not a JSON object (expected a dict at top level).")
+    except Exception as e:
+        # Provide a compact, useful error for UI
+        snippet = candidate[:300].replace("\n", "\\n")
+        raise ValueError(f"Could not parse survey definition as JSON. Snippet: {snippet}. Error: {e}")
+
+
+
+# -----------------------------
+# Survey model for display labels
+# -----------------------------
+@dataclass
+class SurveyQuestion:
+    name: str
+    title: str
+    qtype: str  # radiogroup, checkbox, matrix, text, dropdown, etc.
+
+@dataclass
+class MatrixQuestion(SurveyQuestion):
+    rows: List[str]
+    columns: List[str]
+
+@dataclass
+class CheckboxQuestion(SurveyQuestion):
+    choices: List[str]  # values (preferred)
+
+def _choice_values(raw_choices: Any) -> List[str]:
+    vals: List[str] = []
+    if not raw_choices:
+        return vals
+    for c in raw_choices:
+        if isinstance(c, dict):
+            v = c.get("value", "")
+            if v is None or v == "":
+                v = c.get("text", "")
+            vals.append(str(v))
+        else:
+            vals.append(str(c))
+    return [v.strip() for v in vals if str(v).strip()]
+
+def sanitize_option_for_col(opt: str) -> str:
+    s = str(opt).strip().lower()
+    s = re.sub(r"\s+", "_", s)
+    s = re.sub(r"[^a-z0-9_]+", "", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    return s or "option"
+
+def prettify_choice_from_suffix(suffix: str) -> str:
+    s = str(suffix).replace("_", " ").strip()
+    if s.islower():
+        s = s.title()
+    return s
+
+def build_survey_model(survey_def: Dict[str, Any]) -> Tuple[Dict[str, SurveyQuestion], Dict[str, MatrixQuestion], Dict[str, CheckboxQuestion]]:
+    questions: Dict[str, SurveyQuestion] = {}
+    matrix: Dict[str, MatrixQuestion] = {}
+    checkbox: Dict[str, CheckboxQuestion] = {}
+
+    for p in survey_def.get("pages", []):
+        for el in p.get("elements", []):
+            qtype = el.get("type", "")
+            name = el.get("name", "")
+            if not name:
+                continue
+            title = el.get("title", name)
+
+            if qtype == "matrix":
+                rows = [str(r) for r in el.get("rows", [])]
+                cols = [str(c) for c in el.get("columns", [])]
+                mq = MatrixQuestion(name=name, title=title, qtype=qtype, rows=rows, columns=cols)
+                questions[name] = mq
+                matrix[name] = mq
+            elif qtype == "checkbox":
+                choices = _choice_values(el.get("choices", []))
+                cq = CheckboxQuestion(name=name, title=title, qtype=qtype, choices=choices)
+                questions[name] = cq
+                checkbox[name] = cq
+            else:
+                questions[name] = SurveyQuestion(name=name, title=title, qtype=qtype)
+
+    return questions, matrix, checkbox
+
+
 # -----------------------------
 # Utilities: Data + DuckDB
 # -----------------------------
@@ -169,23 +293,28 @@ def build_duckdb(df: pd.DataFrame) -> Tuple[duckdb.DuckDBPyConnection, Dict[str,
       - connection (in-memory)
       - sql_name -> original column
       - sql_name -> canonical key
+
+    IMPORTANT:
+    Do not use a dict comprehension for normalized names, as it can silently drop
+    columns when multiple original columns normalize to the same SQL-safe key.
+    This implementation preserves all columns and disambiguates collisions.
     """
-    col_map = {normalize_colname(c): c for c in df.columns}
-    # Ensure uniqueness
-    used = {}
-    sql_cols = []
-    for sql_name, orig in col_map.items():
-        base = sql_name
-        i = 1
-        while sql_name in used:
-            i += 1
-            sql_name = f"{base}_{i}"
-        used[sql_name] = orig
+    used: Dict[str, int] = {}
+    sql_cols: List[Tuple[str, str]] = []
+
+    for orig in df.columns.astype(str).tolist():
+        base_name = normalize_colname(orig)
+        sql_name = base_name
+        if sql_name in used:
+            used[base_name] += 1
+            sql_name = f"{base_name}_{used[base_name]}"
+        else:
+            used[base_name] = 0
         sql_cols.append((sql_name, orig))
 
     # Rename dataframe for duckdb
     df2 = df.copy()
-    df2.columns = [c[0] for c in sql_cols]
+    df2.columns = [sql for sql, _ in sql_cols]
 
     con = duckdb.connect(database=":memory:")
     con.register("responses_df", df2)
@@ -301,19 +430,16 @@ def validate_sql(sql: str, allowed_cols: List[str]) -> str:
     return s
 
 def build_schema_context(con, sql_cols: List[str], sql_to_orig: Dict[str, str], qmeta: Dict[str, QuestionMeta], sql_to_canon: Dict[str, str]) -> str:
-    # Provide a compact schema for the LLM: name, label, top values
     lines = []
     for c in sql_cols:
-        label = sql_to_orig.get(c, c)
-        meta = qmeta.get(sql_to_canon.get(c, ""), None)
-        title = meta.title if meta else label
-        # keep values short; sampling top 15 distinct
+        orig = sql_to_orig.get(c, c)
+        label = display_label_for_original(orig)
         try:
-            vals = fetch_distinct_values(con, c, limit=15)
+            vals = fetch_distinct_values(con, c, limit=12)
         except Exception:
             vals = []
-        vals_str = ", ".join([v[:40] for v in vals[:15]])
-        lines.append(f"- {c}: {title}. Example values: {vals_str}")
+        vals_str = ", ".join([str(v)[:50] for v in vals[:12]])
+        lines.append(f"- responses.{c}: {label}. Example values: {vals_str}")
     return "\n".join(lines)
 
 def llm_plan_query(llm: ChatOpenAI, question: str, schema_context: str) -> Dict[str, Any]:
@@ -399,10 +525,16 @@ st.title("Survey Data Explorer + Q&A")
 
 with st.sidebar:
     st.header("Data files")
-    excel_path = st.text_input("Excel dataset path", value="PS Export_60.xlsx")
-    surveydef_path = st.text_input("Survey definition (RTF) path", value="PS_SurveyDefinition.json")
+    use_prepared = st.toggle("Use prepared Parquet (recommended)", value=False)
+    if use_prepared:
+        responses_parquet = st.text_input("Prepared responses.parquet path", value="prepared/responses.parquet")
+        selections_parquet = st.text_input("Prepared selections.parquet path", value="prepared/selections.parquet")
+        meta_json_path = st.text_input("Prepared meta.json path", value="prepared/meta.json")
+    else:
+        excel_path = st.text_input("Excel dataset path", value="PS Export_60.xlsx")
+    surveydef_path = st.text_input("Survey definition (JSON) path", value="PS_SurveyDefinition.json")
 
-    st.caption("Tip: Put both files in the same folder as this app, or update paths.")
+    st.caption("Tip: Put data files in the same folder as this app, or update paths.")
 
     st.divider()
     st.header("LLM settings")
@@ -413,28 +545,107 @@ with st.sidebar:
 
 # Load files
 try:
-    df_raw = load_excel_to_df(excel_path)
+    if use_prepared:
+        df_raw = pd.read_parquet(responses_parquet)
+    else:
+        df_raw = load_excel_to_df(excel_path)
 except Exception as e:
-    st.error(f"Failed to load Excel dataset: {e}")
+    src = responses_parquet if use_prepared else excel_path
+    st.error(f"Failed to load dataset from {src}: {e}")
     st.stop()
 
+selections_df = None
+if use_prepared:
+    try:
+        selections_df = pd.read_parquet(selections_parquet)
+    except Exception:
+        selections_df = None
+
+meta_info = None
+if use_prepared:
+    try:
+        with open(meta_json_path, 'r', encoding='utf-8') as f:
+            meta_info = json.load(f)
+    except Exception:
+        meta_info = None
+
 try:
-    survey_def = load_survey_definition_rtf(surveydef_path)
+    survey_def = load_survey_definition_json(surveydef_path)
     qmeta = build_question_meta(survey_def)
+    questions_by_name, matrix_by_name, checkbox_by_name = build_survey_model(survey_def)
 except Exception as e:
     qmeta = {}
-    st.warning(f"Failed to parse survey definition. Charts will still work, but labels may be less friendly. Details: {e}")
+    questions_by_name, matrix_by_name, checkbox_by_name = {}, {}, {}
+    st.warning(
+        f"Failed to parse survey definition JSON. Charts will still work, but labels may be less friendly. Details: {e}"
+    )
+
+# Fields to exclude from user-facing UI (dashboard + schema)
+EXCLUDE_COL_PATTERNS = [
+    re.compile(r"^respondent_id$", re.I),
+    re.compile(r"^respondent id$", re.I),
+    re.compile(r"^survey_outcome$", re.I),
+    re.compile(r"^survey outcome$", re.I),
+    re.compile(r"^surveyoutcome$", re.I),
+    re.compile(r"^s3_?consent$", re.I),
+    re.compile(r"consent", re.I),
+    re.compile(r"comment", re.I),
+    # Only exclude the survey timestamp field (avoid hiding legitimate time-based questions)
+    re.compile(r"^survey[ _-]?date[ _-]?time$", re.I),
+]
+
+def is_excluded_user_field(original_name: str) -> bool:
+    s = str(original_name).strip()
+    return any(p.search(s) for p in EXCLUDE_COL_PATTERNS)
 
 con, sql_to_orig, sql_to_canon = build_duckdb(df_raw)
 all_sql_cols = list(sql_to_orig.keys())
-cat_cols = get_categorical_columns(con, sql_to_orig)
+allowed_cols_for_llm = [c for c in all_sql_cols if not is_excluded_user_field(sql_to_orig.get(c,''))]
+cat_cols = [c for c in get_categorical_columns(con, sql_to_orig) if not is_excluded_user_field(sql_to_orig.get(c,''))]
+
+def display_label_for_original(original_name: str) -> str:
+    """
+    Required formats:
+      - Radiogroup/Dropdown/Text:  NAME - TITLE
+      - Matrix:                   NAME - TITLE - ROW
+      - Checkbox (one-hot):       NAME - TITLE - CHOICE
+    """
+    orig = str(original_name).strip()
+
+    # Checkbox one-hot or Matrix: "<QNAME> <suffix>"
+    m = re.match(r"^([A-Za-z0-9]+)\s+(.+)$", orig)
+    if m:
+        base, suffix = m.group(1), m.group(2)
+        if base in checkbox_by_name:
+            q = checkbox_by_name[base]
+            lookup = {sanitize_option_for_col(c): c for c in q.choices}
+            # Fallback to meta.json choices if available (prepared pipeline)
+            if meta_info and isinstance(meta_info, dict):
+                try:
+                    meta_cb = meta_info.get("checkbox_questions", {}).get(base, {}).get("choices", [])
+                    for c in meta_cb:
+                        lookup.setdefault(sanitize_option_for_col(c), c)
+                except Exception:
+                    pass
+            choice = lookup.get(sanitize_option_for_col(suffix))
+            if choice is None:
+                choice = prettify_choice_from_suffix(suffix)
+            return f"{base} - {q.title} - {choice}"
+
+        if base in matrix_by_name:
+            q = matrix_by_name[base]
+            return f"{base} - {q.title} - {suffix}"
+
+    # Base question exact match
+    if orig in questions_by_name:
+        q = questions_by_name[orig]
+        return f"{q.name} - {q.title}"
+
+    return orig
 
 def friendly_label(sql_col: str) -> str:
     orig = sql_to_orig.get(sql_col, sql_col)
-    meta = qmeta.get(sql_to_canon.get(sql_col, ""), None)
-    if meta and meta.title:
-        return f"{sql_col} — {meta.title}"
-    return f"{sql_col} — {orig}"
+    return display_label_for_original(orig)
 
 tab1, tab2 = st.tabs(["Dashboard", "Q&A"])
 
@@ -529,9 +740,12 @@ with tab2:
 
     llm = ChatOpenAI(model=model_name, temperature=temperature)
 
-    # Build a smaller schema context for prompting (cap at 80 cols)
-    # If all columns are categorical, you may still want to cap prompt size.
-    schema_cols = cat_cols[:80] if len(cat_cols) > 80 else cat_cols
+    # Build schema context for prompting.
+    # Previously this was capped at 80 columns; you can increase if needed.
+    st.caption("Schema summary is capped by default to avoid overly long prompts. Increase the cap if needed.")
+    schema_cap = st.slider("Max columns to include in schema context", min_value=20, max_value=min(400, len(cat_cols)), value=min(160, len(cat_cols)), step=10)
+
+    schema_cols = cat_cols[:schema_cap]
     schema_context = build_schema_context(con, schema_cols, sql_to_orig, qmeta, sql_to_canon)
 
     with st.expander("Schema summary (used for Q&A)", expanded=False):
@@ -556,7 +770,7 @@ with tab2:
         notes = plan.get("notes", "")
 
         try:
-            validated = validate_sql(sql, allowed_cols=all_sql_cols)
+            validated = validate_sql(sql, allowed_cols=allowed_cols_for_llm)
         except Exception as e:
             st.error(f"SQL validation failed: {e}")
             st.code(sql or "(no sql produced)")

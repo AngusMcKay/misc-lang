@@ -1,4 +1,3 @@
-
 import os
 import re
 import json
@@ -13,10 +12,23 @@ import plotly.express as px
 # Optional: OpenAI via LangChain (uses OPENAI_API_KEY / Streamlit secrets)
 from langchain_openai import ChatOpenAI
 
-
 # -----------------------------
 # Utilities: Survey definition
 # -----------------------------
+
+def _normalize_json_whitespace(txt: str) -> str:
+    """
+    Python's built-in json parser only treats ASCII whitespace as whitespace.
+    Some editors insert Unicode space separators (e.g., U+2006, U+2007) which break json.loads.
+    This normalizes common Unicode whitespace to regular spaces.
+    """
+    # Replace any Unicode 'space separator' characters with ASCII space
+    txt = re.sub(r"[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000]", " ", txt)
+    # Also normalize odd thin spaces that sometimes appear
+    txt = txt.replace("\uFEFF", "")  # BOM
+    return txt
+
+
 def _rtf_hex_unescape(s: str) -> str:
     """Convert RTF hex escapes like \\'96 into the corresponding cp1252 character."""
     def repl(m: re.Match) -> str:
@@ -134,6 +146,42 @@ def build_question_meta(survey_def: Dict[str, Any]) -> Dict[str, QuestionMeta]:
             out[canon_key(name)] = QuestionMeta(name=name, title=title, qtype=qtype, choices=choices)
 
     return out
+
+
+
+def load_survey_definition_json(json_path: str) -> Dict[str, Any]:
+    """
+    Robust loader for survey definition.
+    Accepts:
+      - strict JSON
+      - JSON embedded in other text (extracts first {...})
+      - python-dict-like text (single quotes) via ast.literal_eval as a fallback
+    """
+    txt = open(json_path, "rb").read().decode("utf-8", errors="ignore")
+    txt = _normalize_json_whitespace(txt).strip()
+
+    # If there's leading junk, extract first JSON object.
+    try:
+        candidate = _extract_first_json_object(txt)
+    except Exception:
+        candidate = txt
+
+    # First attempt: strict JSON
+    try:
+        return json.loads(candidate)
+    except Exception:
+        pass
+
+    # Fallback: python literal (handles single quotes). Safer than eval.
+    try:
+        obj = ast.literal_eval(candidate)
+        if isinstance(obj, dict):
+            return obj
+        raise ValueError("Survey definition is not a JSON object (expected a dict at top level).")
+    except Exception as e:
+        # Provide a compact, useful error for UI
+        snippet = candidate[:300].replace("\n", "\\n")
+        raise ValueError(f"Could not parse survey definition as JSON. Snippet: {snippet}. Error: {e}")
 
 
 # -----------------------------
@@ -419,8 +467,7 @@ except Exception as e:
     st.stop()
 
 try:
-    with open(surveydef_path, "r", encoding="utf-8") as f:
-        survey_def = json.load(f)
+    survey_def = load_survey_definition_json(surveydef_path)
     qmeta = build_question_meta(survey_def)
 except Exception as e:
     qmeta = {}
