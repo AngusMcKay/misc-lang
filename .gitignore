@@ -10,4 +10,4 @@ prepared/*
 *.csv
 *.json
 *.parquet
-!surveyapp/app/simpleversion/prepared_simple/responses.parquet
+!surveyapp/app/simpleversion/prepared_data/responses.parquet
