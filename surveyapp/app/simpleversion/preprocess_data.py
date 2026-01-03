@@ -1,30 +1,25 @@
 #!/usr/bin/env python3
 """
-First-pass survey data cleaner + labeler.
-
 Inputs:
-  - Excel export (e.g., "PS Export_60.xlsx")
-  - Survey definition JSON (e.g., "PS_SurveyDefinition.json")
+  - Excel export ("PS Export_60.xlsx")
+  - Survey definition JSON ("PS_SurveyDefinition.json")
 
 Outputs:
-  - prepared_simple/responses.parquet
-  - prepared_simple/selections.parquet
+  - prepared_simple/responses.parquet (and .csv)
+  - prepared_simple/selections.parquet (and .csv)
   - prepared_simple/meta.json
 
-Cleaning rules (per your spec):
+Cleaning rules:
   1) Column heading normalization:
-     - Remove the blank space before each capital letter (e.g., "P I6_0" -> "PI6_0", "Survey Date Time" -> "SurveyDateTime").
+     - Remove the blank space before each capital letter (e.g., " P I6_0" -> "PI6_0", " Survey Date Time" -> "SurveyDateTime").
   2) Add question titles into column names:
      - For non-checkbox/matrix questions: rename exact-match column NAME -> "NAME - TITLE"
      - For checkbox & matrix: split on the LAST "_" to get base and suffix. If base matches NAME exactly,
-       rename to "NAME - TITLE_<suffix>".
+       rename to "NAME - TITLE_<suffix>", where <suffix> is the checkbox choice or matrix row.
   3) Checkbox handling:
      - Identify numbered columns NAME_0, NAME_1, ... (after normalization).
      - Build one-hot boolean columns named "NAME - TITLE_<choice>" where <choice> is the observed value (plus definition choices).
      - Drop original numbered columns.
-
-Note:
-  - This is a "first pass" – you can refine choice canonicalization later.
 """
 
 import json
@@ -239,6 +234,6 @@ if __name__ == "__main__":
     preprocess(
         excel_path="PS Export_60.xlsx",
         survey_def_json_path="PS_SurveyDefinition.json",
-        out_dir="prepared_simple",
+        out_dir="prepared_data",
         respondent_id_col=" Respondent Id",
     )

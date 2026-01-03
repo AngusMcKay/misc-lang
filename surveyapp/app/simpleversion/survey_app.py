@@ -10,6 +10,9 @@ import plotly.express as px
 import streamlit as st
 from langchain_openai import ChatOpenAI
 
+APP_DIR = Path(__file__).resolve().parent
+REPO_ROOT = APP_DIR
+
 st.set_page_config(page_title="Survey Explorer", layout="wide")
 
 # -----------------------------
@@ -285,9 +288,11 @@ def checkbox_chart_data(con, pairs: List[Tuple[str, str]]) -> pd.DataFrame:
 st.sidebar.header("Function selection")
 page = st.sidebar.radio("Toggle between dashboard and Q&A pages", ["Dashboard", "Q&A"], index=0)
 
-st.sidebar.header("Data and definition paths")
-responses_path = st.sidebar.text_input("Survey response path (parquet)", value="prepared_simple/responses.parquet")
-surveydef_path = st.sidebar.text_input("Survey definition JSON (optional, for question-type charts)", value="PS_SurveyDefinition.json")
+#st.sidebar.header("Data and definition paths")
+#responses_path = st.sidebar.text_input("Survey response path (parquet)", value=str(REPO_ROOT / "prepared_data" / "responses.parquet"))
+#surveydef_path = st.sidebar.text_input("Survey definition JSON (optional, for question-type charts)", value=str(REPO_ROOT / "PS_SurveyDefinition.json"))
+responses_path = str(REPO_ROOT / "prepared_data" / "responses.parquet")
+surveydef_path = str(REPO_ROOT / "PS_SurveyDefinition.json")
 
 con, sql_to_header = build_duckdb_from_parquet(responses_path)
 user_sql_cols = get_user_sql_cols(sql_to_header)
