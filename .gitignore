@@ -8,5 +8,6 @@ surveyapp/app/PS*
 prepared/*
 *.xlsx
 *.csv
-*.parquet
 *.json
+*.parquet
+!surveyapp/app/simpleversion/prepared_simple/responses.parquet
