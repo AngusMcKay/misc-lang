@@ -99,7 +99,7 @@ def build_duckdb_from_parquet(parquet_path: str) -> Tuple[duckdb.DuckDBPyConnect
         select_parts.append(f"{qh} AS {name}")
 
     select_list = ", ".join(select_parts)
-    con.execute(f"CREATE TABLE responses AS SELECT {select_list} FROM read_parquet('{parquet_path}')")
+    con.execute(f"CREATE VIEW responses AS SELECT {select_list} FROM read_parquet('{parquet_path}')")
     return con, sql_to_header
 
 def get_user_sql_cols(sql_to_header: Dict[str, str]) -> List[str]:
@@ -464,6 +464,11 @@ else:
     with st.expander("Schema context (expand to see survey questions to help decide what to ask)"):
         st.text(schema_preview)
 
+    # Model selector: "fast" -> gpt-4o-mini, "deeper reasoning" -> gpt-4.1 (default)
+    model_map = {"fast": "gpt-4o-mini", "deeper reasoning": "gpt-4.1"}
+    model_label = st.radio("Model", ["Fast (GPT-4o-mini)", "Deeper reasoning (GPT-4.1)"], index=1, key="qa_model_choice")
+    selected_model = model_map.get(model_label, "gpt-4.1")
+
     # put the question + run button in a form so Ctrl+Enter submits as well as clicking Run
     with st.form("qa_form", clear_on_submit=False):
         # use a key so the text is persisted in session_state
@@ -471,7 +476,7 @@ else:
         submit = st.form_submit_button("Run")
 
     if submit and question.strip():
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        llm = ChatOpenAI(model=selected_model, temperature=0)
         prompt = f"{SYSTEM_SQL}\n\nSCHEMA:\n{schema_for_llm}\n\nQUESTION:\n{question}\n"
         sql_raw = llm.invoke(prompt).content
     else:
