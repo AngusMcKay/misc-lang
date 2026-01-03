@@ -1,0 +1,1645 @@
+{
+    "completedHtmlOnCondition": [
+        {
+            "expression": "{SURVEY_OUTCOME} = 'SCREEN_OUT'",
+            "html": "<h3>Thank you for your interest.</h3><p>Unfortunately, you do not meet the specific criteria required for this particular study.</p>"
+        },
+        {
+            "expression": "{SURVEY_OUTCOME} = 'COMPLETE'",
+            "html": "<h3>Thank you!</h3><p>You have successfully completed the survey. Your feedback is very valuable to us.</p>"
+        }
+    ],
+    "pages": [
+        {
+            "name": "screening_page",
+            "elements": [
+                {
+                    "type": "text",
+                    "name": "S1_Age",
+                    "title": "Please enter your age in years.",
+                    "isRequired": true,
+                    "validators": [
+                        {
+                            "type": "numeric",
+                            "text": "You must be 18 years or older to participate.",
+                            "minValue": 18,
+                            "maxValue": 105
+                        }
+                    ],
+                    "inputType": "number",
+                    "min": 18,
+                    "max": 120
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "S2_Country",
+                    "title": "Where do you currently live?",
+                    "isRequired": true,
+                    "choices": [
+                        "Australia",
+                        "Singapore",
+                        "United Kingdom",
+                        "Ireland",
+                        "New Zealand"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "S3_Consent",
+                    "visibleIf": "{S2_Country} = 'Australia' and {S1_Age} notempty",
+                    "title": "Do you consent to your responses being used for confidential market research purposes (anonymised and reported in aggregate)?",
+                    "isRequired": true,
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "demographics_page",
+            "visibleIf": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "elements": [
+                {
+                    "type": "text",
+                    "name": "D_Postcode",
+                    "title": "What is your Australian postcode?",
+                    "description": "Leave blank if you prefer not to say.",
+                    "validators": [
+                        {
+                            "type": "regex",
+                            "text": "Please enter a valid 4-digit Australian postcode (e.g., 2000).",
+                            "regex": "^[0-9]{4}$"
+                        }
+                    ],
+                    "maxLength": 4
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D_State",
+                    "title": "Region / State / Territory",
+                    "isRequired": true,
+                    "choices": [
+                        {
+                            "value": "NSW",
+                            "text": "New South Wales (NSW)"
+                        },
+                        {
+                            "value": "VIC",
+                            "text": "Victoria (VIC)"
+                        },
+                        {
+                            "value": "QLD",
+                            "text": "Queensland (QLD)"
+                        },
+                        {
+                            "value": "SA",
+                            "text": "South Australia (SA)"
+                        },
+                        {
+                            "value": "WA",
+                            "text": "Western Australia (WA)"
+                        },
+                        {
+                            "value": "TAS",
+                            "text": "Tasmania (TAS)"
+                        },
+                        {
+                            "value": "ACT",
+                            "text": "Australian Capital Territory (ACT, incl Jervis Bay)"
+                        },
+                        {
+                            "value": "NT",
+                            "text": "Northern Territory (NT)"
+                        }
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D1",
+                    "title": "What is your gender?",
+                    "isRequired": true,
+                    "choices": [
+                        "Male",
+                        "Female"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D2",
+                    "title": "Highest education completed",
+                    "isRequired": true,
+                    "choices": [
+                        "Secondary school or below",
+                        "Trade / apprenticeship",
+                        "Certificate / diploma",
+                        "Bachelor's degree",
+                        "Postgraduate degree or above"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D3",
+                    "title": "Employment status",
+                    "isRequired": true,
+                    "choices": [
+                        "Employed full-time",
+                        "Employed part-time",
+                        "Self-employed",
+                        "Business owner",
+                        "Retired",
+                        "Unemployed and looking for work",
+                        "Not in labour force (carer / homemaker)",
+                        "Studying full-time"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D4",
+                    "visibleIf": "{D3} = 'Employed full-time' or {D3} = 'Employed part-time' or {D3} = 'Self-employed' or {D3} = 'Business owner'",
+                    "title": "Main industry of work",
+                    "isRequired": true,
+                    "choices": [
+                        "Public sector / government",
+                        "Professional services",
+                        "Healthcare",
+                        "Education",
+                        "Construction",
+                        "Manufacturing",
+                        "Retail",
+                        "Hospitality",
+                        "Technology",
+                        "Finance / banking",
+                        "Agriculture",
+                        "Not applicable"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D5",
+                    "title": "Household composition",
+                    "isRequired": true,
+                    "choices": [
+                        "Live alone",
+                        "Couple without children at home",
+                        "Couple with children at home",
+                        "Single parent",
+                        "Shared household (non-family)",
+                        "Multi-generational"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D6",
+                    "visibleIf": "{D5} != 'Live alone' and {D5} != 'other' and {D5} != 'none'",
+                    "title": "Household size",
+                    "isRequired": true,
+                    "choices": [
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6+"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D8",
+                    "title": "Housing tenure",
+                    "isRequired": true,
+                    "choices": [
+                        "Own outright",
+                        "Own with mortgage",
+                        "Rent privately",
+                        "Rent from government/social housing",
+                        "Live with family/friends (no rent)"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D9",
+                    "title": "Length of residence at current address",
+                    "isRequired": true,
+                    "choices": [
+                        "<6 months",
+                        "6–11 months",
+                        "1–2 years",
+                        "3–5 years",
+                        "6–10 years",
+                        "10+ years"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D10",
+                    "title": "Do you speak another language other than English at home?",
+                    "isRequired": true,
+                    "choices": [
+                        "No",
+                        "Yes"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D11",
+                    "title": "Religion, if any",
+                    "isRequired": true,
+                    "choices": [
+                        "No religion",
+                        "Christian",
+                        "Muslim",
+                        "Hindu",
+                        "Buddhist",
+                        "Jewish",
+                        "Sikh"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D13",
+                    "title": "Annual household income before tax (AUD ($))",
+                    "isRequired": true,
+                    "choices": [
+                        "Under $30,000",
+                        "$30,000–$45,000",
+                        "$45,000–$60,000",
+                        "$60,000–$90,000",
+                        "$90,000–$110,000",
+                        "$110,000–$130,000",
+                        "$130,000–$160,000",
+                        "$160,000–$200,000",
+                        "$200,000–$250,000",
+                        "$250,000+"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D14",
+                    "title": "Are you the primary bill-payer/financial decision-maker?",
+                    "isRequired": true,
+                    "choices": [
+                        "Main decision-maker",
+                        "Share decisions equally",
+                        "Not usually the decision-maker",
+                        "Not applicable"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D15",
+                    "title": "Are you the main shopper/person who does most of the shopping (i.e., groceries etc.)?",
+                    "isRequired": true,
+                    "choices": [
+                        "Main shopper",
+                        "Share shopping decisions equally",
+                        "Not usually the shopper"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D16",
+                    "title": "Relationship status",
+                    "description": "Which best describes you?",
+                    "isRequired": true,
+                    "choices": [
+                        "Single",
+                        "In a relationship (not living together)",
+                        "Living with partner",
+                        "Married / civil partnership",
+                        "Separated / divorced",
+                        "Widowed"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D17",
+                    "title": "How interested are you in politics?",
+                    "description": "(The choices below range from 'Very interested' to 'Not interested at all')",
+                    "isRequired": true,
+                    "choices": [
+                        "Very interested",
+                        "Fairly interested",
+                        "Not very interested",
+                        "Not interested at all"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "matrix",
+                    "name": "D18A",
+                    "title": "Are you a member of any of the following organisations?",
+                    "description": "(Please select Yes, No, or Prefer not to say for each item)",
+                    "isRequired": true,
+                    "columns": [
+                        "Yes",
+                        "No",
+                        "Prefer not to say"
+                    ],
+                    "rows": [
+                        "A Trade Union",
+                        "A political party",
+                        "A sports club",
+                        "A professional association / institute",
+                        "Volunteering or charity group",
+                        "Community group"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D19",
+                    "title": "What type of housing do you live in?",
+                    "isRequired": true,
+                    "choices": [
+                        "Separate house",
+                        "Semi-detached / row / terrace / townhouse",
+                        "Flat or apartment",
+                        "Caravan",
+                        "Cabin / houseboat",
+                        "Improvised home / tent / sleepers out",
+                        "House or flat attached to a shop/office/etc."
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D19_Semi_Stories",
+                    "visibleIf": "{D19} = 'Semi-detached / row / terrace / townhouse'",
+                    "title": "How many storeys/levels is your semi-detached / row / terrace / townhouse?",
+                    "isRequired": true,
+                    "choices": [
+                        "With one storey",
+                        "With two or more storeys"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D19_Flat_Stories",
+                    "visibleIf": "{D19} = 'Flat or apartment'",
+                    "title": "Which best describes your flat or apartment block?",
+                    "isRequired": true,
+                    "choices": [
+                        "In a 1–2 storey block",
+                        "In a 3-storey block",
+                        "In a 4–8 storey block",
+                        "In a 9+ storey block",
+                        "Attached to a house (e.g., granny flat)"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "D20",
+                    "title": "Were you born in Australia or overseas?",
+                    "isRequired": true,
+                    "choices": [
+                        "Born in Australia",
+                        "Born overseas"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                }
+            ]
+        },
+        {
+            "name": "consumer_confidence_page",
+            "visibleIf": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "elements": [
+                {
+                    "type": "radiogroup",
+                    "name": "CC1",
+                    "title": "Over the next 12 months, do you think Australia's economy, as a whole, will…",
+                    "isRequired": true,
+                    "choices": [
+                        "Improve a lot",
+                        "Improve a little",
+                        "Stay about the same",
+                        "Get worse a little",
+                        "Get worse a lot",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC2",
+                    "title": "Over the next 12 months, do you expect your household's financial situation to…",
+                    "isRequired": true,
+                    "choices": [
+                        "Improve a lot",
+                        "Improve a little",
+                        "Stay about the same",
+                        "Get worse a little",
+                        "Get worse a lot",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC3",
+                    "title": "Compared with a year ago, are your regular expenses…",
+                    "isRequired": true,
+                    "choices": [
+                        "Much higher",
+                        "Slightly higher",
+                        "About the same",
+                        "Slightly lower",
+                        "Much lower",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC4",
+                    "visibleIf": "{D3} = 'Employed full-time' or {D3} = 'Employed part-time' or {D3} = 'Self-employed' or {D3} = 'Business owner'",
+                    "title": "How secure do you feel in your current job?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very secure",
+                        "Fairly secure",
+                        "Not very secure",
+                        "Not secure at all",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC5",
+                    "title": "How likely do you think it is that Australia will enter a recession in the next 12 months?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very likely",
+                        "Fairly likely",
+                        "Not very likely",
+                        "Not likely at all",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC6",
+                    "title": "In the next 6 months, do you expect your household spending to…",
+                    "isRequired": true,
+                    "choices": [
+                        "Increase",
+                        "Stay about the same",
+                        "Decrease",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC7",
+                    "title": "Thinking about typical current interest rates and lending criteria, how willing would you be to take out a loan in the next 12 months to fund a major purchase (e.g., a car, home renovation, or major appliance)?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very willing",
+                        "Somewhat willing",
+                        "Neither willing nor unwilling",
+                        "Somewhat unwilling",
+                        "Very unwilling",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC8",
+                    "title": "In the next 6 months, do you expect your ability to save money to…",
+                    "isRequired": true,
+                    "choices": [
+                        "Improve",
+                        "Get worse",
+                        "Stay about the same",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "CC9",
+                    "title": "Do you think now is a good or bad time for your household to make a major purchase (e.g., car, large appliance, home improvement)?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very good time",
+                        "Fairly good time",
+                        "Neither good nor bad",
+                        "Fairly bad time",
+                        "Very bad time",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "checkbox",
+                    "name": "CC10",
+                    "title": "In the past 3 months, which (if any) have you done to manage household costs?",
+                    "isRequired": true,
+                    "choices": [
+                        "Cut back discretionary spending (eating out/entertainment)",
+                        "Switched to cheaper brands/supermarkets",
+                        "Delayed a major purchase",
+                        "Reduced utilities usage (heating/cooling)",
+                        "Used savings to cover expenses",
+                        "Increased credit card use / BNPL",
+                        "Sought extra hours/second job",
+                        "Missed or delayed a bill/repayment",
+                        {
+                            "value": "None – I have not made any cutbacks",
+                            "isExclusive": true
+                        },
+                        {
+                            "value": "Prefer not to say",
+                            "isExclusive": true
+                        }
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)"
+                }
+            ]
+        },
+        {
+            "name": "international_affairs_page",
+            "visibleIf": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "elements": [
+                {
+                    "type": "matrix",
+                    "name": "IA1_5",
+                    "title": "How concerned are you about each of the following? (Part 1 of 2)",
+                    "description": "(Please select one level of concern for each item)",
+                    "isRequired": true,
+                    "columns": [
+                        "Very concerned",
+                        "Fairly concerned",
+                        "Not very concerned",
+                        "Not concerned at all",
+                        "Unsure"
+                    ],
+                    "rows": [
+                        "War and armed conflict",
+                        "Terrorism",
+                        "Cyberattacks on critical systems",
+                        "Foreign interference in democracies",
+                        "Global inflation and cost of living"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "IA6_10",
+                    "title": "How concerned are you about each of the following? (Part 2 of 2)",
+                    "isRequired": true,
+                    "columns": [
+                        "Very concerned",
+                        "Fairly concerned",
+                        "Not very concerned",
+                        "Not concerned at all",
+                        "Unsure"
+                    ],
+                    "rows": [
+                        "Economic slowdown in major economies",
+                        "Supply chain disruption",
+                        "Energy supply disruptions",
+                        "Climate-related disasters",
+                        "Pandemics and health emergencies"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "IA11_15",
+                    "title": "Overall, what is your view of the following countries/groups of countries? (Part 1 of 4)",
+                    "description": "(Please select your view for each country/group)",
+                    "isRequired": true,
+                    "columns": [
+                        "Very favourable",
+                        "Somewhat favourable",
+                        "Neutral",
+                        "Somewhat unfavourable",
+                        "Very unfavourable",
+                        "Unsure",
+                        "Have not heard of"
+                    ],
+                    "rows": [
+                        "China",
+                        "United States",
+                        "Japan",
+                        "India",
+                        "Indonesia"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "IA16_20",
+                    "title": "Overall, what is your view of the following countries/groups of countries? (Part 2 of 4)",
+                    "isRequired": true,
+                    "columns": [
+                        "Very favourable",
+                        "Somewhat favourable",
+                        "Neutral",
+                        "Somewhat unfavourable",
+                        "Very unfavourable",
+                        "Unsure",
+                        "Have not heard of"
+                    ],
+                    "rows": [
+                        "New Zealand",
+                        "South Korea",
+                        "Singapore",
+                        "Taiwan",
+                        "Malaysia"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "IA21_25",
+                    "title": "Overall, what is your view of the following countries/groups of countries? (Part 3 of 4)",
+                    "isRequired": true,
+                    "columns": [
+                        "Very favourable",
+                        "Somewhat favourable",
+                        "Neutral",
+                        "Somewhat unfavourable",
+                        "Very unfavourable",
+                        "Unsure",
+                        "Have not heard of"
+                    ],
+                    "rows": [
+                        "Thailand",
+                        "United Kingdom",
+                        "European Union (EU)",
+                        "Russia",
+                        "Israel"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "IA26_30",
+                    "title": "Overall, what is your view of the following countries/groups of countries? (Part 4 of 4)",
+                    "isRequired": true,
+                    "columns": [
+                        "Very favourable",
+                        "Somewhat favourable",
+                        "Neutral",
+                        "Somewhat unfavourable",
+                        "Very unfavourable",
+                        "Unsure",
+                        "Have not heard of"
+                    ],
+                    "rows": [
+                        "Canada",
+                        "Germany",
+                        "France",
+                        "Italy",
+                        "Spain"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "PI4",
+                    "title": "Do you support or oppose Australia taking a more active role internationally?",
+                    "isRequired": true,
+                    "choices": [
+                        "Strongly oppose",
+                        "Somewhat oppose",
+                        "Neither",
+                        "Somewhat support",
+                        "Strongly support",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "PI5",
+                    "title": "Favourability of selected international political leaders",
+                    "description": "Please select your view for each leader.",
+                    "isRequired": true,
+                    "columns": [
+                        "Very unfavourable",
+                        "Somewhat unfavourable",
+                        "Neither",
+                        "Somewhat favourable",
+                        "Very favourable",
+                        "Unsure",
+                        "Have not heard of"
+                    ],
+                    "rows": [
+                        "Donald Trump (US President)",
+                        "Keir Starmer (UK Prime Minister)",
+                        "Xi Jinping (Chinese President)",
+                        "Narendra Modi (Indian Prime Minister)",
+                        "Christopher Luxon (New Zealand Prime Minister)"
+                    ],
+                    "rowOrder": "random"
+                },
+                {
+                    "type": "matrix",
+                    "name": "PI5B",
+                    "title": "Favourability of selected international political leaders",
+                    "description": "Please select your view for each leader.",
+                    "isRequired": true,
+                    "columns": [
+                        "Very unfavourable",
+                        "Somewhat unfavourable",
+                        "Neither",
+                        "Somewhat favourable",
+                        "Very favourable",
+                        "Unsure",
+                        "Have not heard of"
+                    ],
+                    "rows": [
+                        "Sanae Takaichi (Japanese Prime Minister)",
+                        "Emanuel Macron (French President)",
+                        "Ursula von der Leyen (President of the European Commission)",
+                        "Vladimir Putin (President of Russia)",
+                        "Javier Milei (Argentinian President)"
+                    ],
+                    "rowOrder": "random"
+                },
+                {
+                    "type": "checkbox",
+                    "name": "PI6",
+                    "title": "Which international issues should Australia's leaders prioritise most?",
+                    "description": "Multi choice, pick 3",
+                    "isRequired": true,
+                    "choices": [
+                        "Security/defence",
+                        "Trade and the economy",
+                        "Public health/pandemics",
+                        "Migration/Immigration",
+                        "Human rights",
+                        "Technology/AI governance",
+                        "The environment/Climate change",
+                        {
+                            "value": "Unsure",
+                            "isExclusive": true
+                        },
+                        {
+                            "value": "Prefer not to say",
+                            "isExclusive": true
+                        }
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)",
+                    "maxSelectedChoices": 3
+                },
+                {
+                    "type": "matrix",
+                    "name": "PI7",
+                    "title": "How much influence do you think the following groups have on politics and society in Australia?",
+                    "isRequired": true,
+                    "columns": [
+                        "No influence",
+                        "A little influence",
+                        "Some influence",
+                        "A lot of influence",
+                        "A great deal of influence",
+                        "Unsure"
+                    ],
+                    "rows": [
+                        "Social media influencers",
+                        "Major celebrities",
+                        "Big business leaders",
+                        "News media",
+                        "International political leaders"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "media_entertainment_page",
+            "visibleIf": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "elements": [
+                {
+                    "type": "radiogroup",
+                    "name": "ME1",
+                    "title": "How often do you follow news/current affairs?",
+                    "isRequired": true,
+                    "choices": [
+                        "Multiple times a day",
+                        "Daily",
+                        "A few times a week",
+                        "Weekly",
+                        "Less often",
+                        "Never"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "checkbox",
+                    "name": "ME2",
+                    "title": "Where do you get most of your news?",
+                    "isRequired": true,
+                    "choices": [
+                        "TV news",
+                        "Radio",
+                        "Newspapers (print)",
+                        "Newspapers (online)",
+                        "News apps/aggregators",
+                        "Social media",
+                        "Podcasts",
+                        "YouTube/streaming creators",
+                        "Friends/family",
+                        {
+                            "value": "Unsure",
+                            "isExclusive": true
+                        },
+                        {
+                            "value": "Prefer not to say",
+                            "isExclusive": true
+                        }
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)",
+                    "colCount": 2
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "ME3",
+                    "title": "Overall, how much do you trust the news you see/hear?",
+                    "isRequired": true,
+                    "choices": [
+                        "A lot",
+                        "A fair amount",
+                        "Not much",
+                        "Not at all",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "ME4_10",
+                    "title": "How much do you trust news from each source?",
+                    "isRequired": true,
+                    "columns": [
+                        "A lot",
+                        "Some",
+                        "A little",
+                        "Not at all",
+                        "Unsure"
+                    ],
+                    "rows": [
+                        "Public broadcaster",
+                        "Commercial TV",
+                        "Radio",
+                        "Major newspapers",
+                        "Online-only news sites",
+                        "Social media",
+                        "Podcasts/online creators"
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "name": "ME12",
+                    "title": "Which of the following paid services do you currently use? Select all that apply.",
+                    "isRequired": true,
+                    "choices": [
+                        "Netflix",
+                        "Disney+",
+                        "Amazon Prime Video",
+                        "Apple TV+",
+                        "Stan",
+                        "Paramount",
+                        "HBO Max",
+                        "Foxtel Now",
+                        "Binge",
+                        "Kayo Sports",
+                        "Stan Sport",
+                        "YouTube Premium",
+                        "Spotify",
+                        "Apple Music",
+                        "Amazon Music",
+                        {
+                            "value": "None",
+                            "isExclusive": true
+                        },
+                        {
+                            "value": "Prefer not to say",
+                            "isExclusive": true
+                        }
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)",
+                    "colCount": 2
+                },
+                {
+                    "type": "text",
+                    "name": "ME13",
+                    "title": "Approximately how many hours did you spend watching TV or streaming TV yesterday?",
+                    "description": "Enter number",
+                    "isRequired": true,
+                    "validators": [
+                        {
+                            "type": "regex",
+                            "text": "Please enter a whole number without decimals.",
+                            "regex": "^[0-9]*$"
+                        }
+                    ],
+                    "inputType": "number",
+                    "min": 0,
+                    "max": 20
+                },
+                {
+                    "type": "checkbox",
+                    "name": "ME14",
+                    "title": "In the last 3 months, have you attended any of the following?",
+                    "isRequired": true,
+                    "choices": [
+                        "Cinema",
+                        "Live music (gig/concert)",
+                        "Theatre, musical or comedy show",
+                        "Live sport (attended in person)",
+                        "Festival or major event",
+                        "Museum or art gallery",
+                        "Pub or bar",
+                        "Nightclub",
+                        "Restaurant",
+                        "Zoo / Aquarium / Theme Park",
+                        "Café / Coffee shop",
+                        "Bowling / Mini golf / arcade / escape room (or similar)",
+                        {
+                            "value": "None of these",
+                            "isExclusive": true
+                        },
+                        {
+                            "value": "Prefer not to say",
+                            "isExclusive": true
+                        }
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)",
+                    "colCount": 2
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "ME15",
+                    "title": "How often do you use social media?",
+                    "isRequired": true,
+                    "choices": [
+                        "Multiple times a day",
+                        "Daily",
+                        "A few times a week",
+                        "Weekly",
+                        "Less often",
+                        "Never"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                }
+            ]
+        },
+        {
+            "name": "politics_domestic_page",
+            "visibleIf": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "elements": [
+                {
+                    "type": "radiogroup",
+                    "name": "PD0",
+                    "title": "Are you registered to vote?",
+                    "isRequired": true,
+                    "choices": [
+                        "Yes - I am registered",
+                        "No - I am not registered",
+                        "I am not eligible to vote"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "PD1",
+                    "title": "Do you think Australia is heading in the right direction or the wrong direction?",
+                    "isRequired": true,
+                    "choices": [
+                        "Right direction",
+                        "Wrong direction",
+                        "Neither",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "checkbox",
+                    "name": "PD2",
+                    "title": "What are the top issues facing Australia right now? (Choose up to 3)",
+                    "isRequired": true,
+                    "choices": [
+                        "Cost of living",
+                        "Economy/jobs",
+                        "Housing affordability",
+                        "Health system",
+                        "Education",
+                        "Crime/safety",
+                        "Immigration",
+                        "Climate/environment",
+                        "Tax",
+                        "Infrastructure/transport",
+                        "Defence/national security",
+                        "Indigenous issues",
+                        "Social inequality/poverty",
+                        "International relations",
+                        {
+                            "value": "Unsure",
+                            "isExclusive": true
+                        },
+                        {
+                            "value": "Prefer not to say",
+                            "isExclusive": true
+                        }
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)",
+                    "colCount": 2,
+                    "maxSelectedChoices": 3
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "PD3",
+                    "title": "Which is the single most important issue?",
+                    "description": "(Select one from the issues you chose above)",
+                    "isRequired": true,
+                    "choicesFromQuestion": "PD2",
+                    "choicesFromQuestionMode": "selected"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "PD4",
+                    "title": "Do you approve or disapprove of the current Federal government's overall performance?",
+                    "isRequired": true,
+                    "choices": [
+                        "Strongly approve",
+                        "Somewhat approve",
+                        "Neither",
+                        "Somewhat disapprove",
+                        "Strongly disapprove",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "matrix",
+                    "name": "PD5_18A",
+                    "title": "What is your view of each of the following?",
+                    "isRequired": true,
+                    "columns": [
+                        "Very favourable",
+                        "Somewhat favourable",
+                        "Neutral",
+                        "Somewhat unfavourable",
+                        "Very unfavourable",
+                        "Haven't heard of",
+                        "Unsure"
+                    ],
+                    "rows": [
+                        "Prime Minister – Anthony Albanese",
+                        "Leader of the Opposition – Sussan Ley",
+                        "Leader of the Nationals – David Littleproud",
+                        "Leader of the Australian Greens – Larissa Waters",
+                        "Leader of One Nation – Pauline Hanson"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "PD5_18B",
+                    "title": "What is your view of each of the following?",
+                    "isRequired": true,
+                    "columns": [
+                        "Very favourable",
+                        "Somewhat favourable",
+                        "Neutral",
+                        "Somewhat unfavourable",
+                        "Very unfavourable",
+                        "Haven't heard of",
+                        "Unsure"
+                    ],
+                    "rows": [
+                        "Treasurer – Jim Chalmers",
+                        "Shadow Treasurer – Angus Taylor",
+                        "Deputy Prime Minister – Richard Marles",
+                        "Deputy Leader of the Opposition – Jane Hume",
+                        "Foreign Minister – Penny Wong"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "PD5_18C",
+                    "title": "What is your view of each of the following?",
+                    "isRequired": true,
+                    "columns": [
+                        "Very favourable",
+                        "Somewhat favourable",
+                        "Neutral",
+                        "Somewhat unfavourable",
+                        "Very unfavourable",
+                        "Haven't heard of",
+                        "Unsure"
+                    ],
+                    "rows": [
+                        "Shadow Minister for Foreign Affairs – Simon Birmingham",
+                        "Minister for Finance – Katy Gallagher",
+                        "Minister for Health and Ageing – Mark Butler",
+                        "State/Territory Premier/Chief Minister - Chris Minns / Jacinta Allen / David Crisafulli / Roger Cook / Peter Malinauskas / Jeremy Rockliff / Andrew Barr / Lia Finocchiaro",
+                        "State/Territory Opposition Leader – Kellie Sloane / Jess Wilson / Steven Miles / Shane Love / Ashton Hurn / Josh Willie / Selena Uibo"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "PD20",
+                    "visibleIf": "{PD0} = 'Yes - I am registered'",
+                    "title": "If a Federal Election were held tomorrow, which party would receive your First Preference / Primary vote?",
+                    "isRequired": true,
+                    "choices": [
+                        "Labor Party",
+                        "Liberal Party / Liberal National Party / Country Liberal Party",
+                        "National Party",
+                        "Greens Party",
+                        "One Nation",
+                        "An Independent",
+                        "Unsure"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "PD12",
+                    "visibleIf": "{PD20} notempty and {PD20} != 'Unsure' and {PD20} != 'none'",
+                    "title": "How sure are you about that choice?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very sure",
+                        "Fairly sure",
+                        "Not very sure",
+                        "Not sure at all"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "PD13",
+                    "title": "How much do you trust the Federal Government to manage the national economy?",
+                    "isRequired": true,
+                    "choices": [
+                        "A lot",
+                        "Some",
+                        "A little",
+                        "Not at all",
+                        "Unsure"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "politics_international_page",
+            "visibleIf": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "elements": [
+                {
+                    "type": "radiogroup",
+                    "name": "IP1",
+                    "title": "How closely do you follow international politics?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very closely",
+                        "Fairly closely",
+                        "Not very closely",
+                        "Not at all",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP2",
+                    "title": "How would you describe the current state of global political stability?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very stable",
+                        "Fairly stable",
+                        "Fairly unstable",
+                        "Very unstable",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP3",
+                    "title": "How much influence do you think large foreign companies and corporations have on politics and government decisions in Australia?",
+                    "isRequired": true,
+                    "choices": [
+                        "A great deal of influence",
+                        "Quite a lot of influence",
+                        "Some influence",
+                        "Very little influence",
+                        "No influence at all",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP4",
+                    "title": "How much influence do you believe international political decisions (made by foreign governments) have on Australia?",
+                    "isRequired": true,
+                    "choices": [
+                        "A great deal",
+                        "A lot",
+                        "Some",
+                        "Very little",
+                        "None",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP5",
+                    "title": "How concerned are you about misinformation or propaganda from foreign governments affecting Australia?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very concerned",
+                        "Fairly concerned",
+                        "Not very concerned",
+                        "Not concerned at all",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP6",
+                    "title": "How much do you agree or disagree with the following statement: 'Australia should promote democratic values in all of its international political relationships.'",
+                    "isRequired": true,
+                    "choices": [
+                        "Strongly agree",
+                        "Somewhat agree",
+                        "Neither",
+                        "Somewhat disagree",
+                        "Strongly disagree",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP7",
+                    "title": "Do you think foreign governments are becoming more accountable, less accountable, or staying the same in how they treat their citizens?",
+                    "isRequired": true,
+                    "choices": [
+                        "More accountable",
+                        "About the same",
+                        "Less accountable",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP8",
+                    "title": "How confident are you that national political leaders around the world can cooperate effectively on political issues when needed?",
+                    "isRequired": true,
+                    "choices": [
+                        "Very confident",
+                        "Fairly confident",
+                        "Not very confident",
+                        "Not confident at all",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP9",
+                    "title": "Which political group or bloc do you believe has the most political influence globally today?",
+                    "isRequired": true,
+                    "choices": [
+                        "United States and its allies",
+                        "China and aligned states",
+                        "The European Union",
+                        "Emerging democratic nations (e.g., India, Indonesia, Brazil)",
+                        "No single group dominates",
+                        "Unsure"
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP10",
+                    "title": "Overall, do you feel global democracy is improving, weakening, or staying the same?",
+                    "isRequired": true,
+                    "choices": [
+                        "Improving",
+                        "Staying about the same",
+                        "Weakening",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP11",
+                    "title": "How much do international political developments affect Australian politics and society, in your view, if at all?",
+                    "isRequired": true,
+                    "choices": [
+                        "A great deal",
+                        "Quite a bit",
+                        "Some",
+                        "Very little",
+                        "Not at all",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "IP12",
+                    "title": "Which of the following is the most important international political issue today, in your opinion?",
+                    "description": "Most important international political issue today (Single)",
+                    "isRequired": true,
+                    "choices": [
+                        "Political stability in major powers",
+                        "Authoritarian influence in international affairs",
+                        "Influence of multinational corporations in global politics",
+                        "Foreign interference in other countries' politics (e.g., misinformation, cyber activity)",
+                        "Competition between major powers (e.g., geopolitical rivalry)",
+                        "Democracy and democratic governance worldwide",
+                        "International cooperation to address global challenges",
+                        "Unsure"
+                    ],
+                    "showOtherItem": true,
+                    "otherText": "Other (please specify)"
+                }
+            ]
+        },
+        {
+            "name": "food_beverage_page",
+            "visibleIf": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "elements": [
+                {
+                    "type": "radiogroup",
+                    "name": "FB1",
+                    "title": "In the last week, how many times have you personally, cooked a meal?",
+                    "isRequired": true,
+                    "choices": [
+                        "7 or more",
+                        "5 - 6 times",
+                        "3 - 4 times",
+                        "2 - 3 times",
+                        "1 - 2 times",
+                        "None",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "name": "FB2",
+                    "title": "In the past week, have you bought any of the following? (select all that apply)",
+                    "isRequired": true,
+                    "choices": [
+                        "Fresh fruit and vegetables",
+                        {
+                            "value": "Snacks and treats",
+                            "text": "Chocolates, Snacks and treats"
+                        },
+                        {
+                            "value": "Ready meals / heat-and-eat meals",
+                            "text": "Ready to eat / Microwave meals"
+                        },
+                        {
+                            "value": "Eating out and takeaway",
+                            "text": "Eating out / takeaway"
+                        },
+                        "Meat, poultry, and seafood",
+                        "Alcohol (beer, wine, spirits)",
+                        {
+                            "value": "Dairy & dairy alternatives",
+                            "text": "Dairy alternatives (Almond, Soya etc)"
+                        },
+                        "High-protein foods/snacks (e.g., protein yoghurt, shakes, bars)",
+                        "Gut health foods (e.g., kefir, kombucha, fermented foods, pre/probiotic products)",
+                        "Soft drinks and other sugary drinks",
+                        "Low/zero sugar options",
+                        "Low/zero alcohol drinks",
+                        "Plant-based alternatives (meat/dairy alternatives)",
+                        "Meal kits / prepared meal delivery",
+                        "International flavours / spicy foods (e.g., Korean, Mexican, Indian)",
+                        "'Better-for-you' snacks (e.g., baked, high-fibre, portion packs)",
+                        "Premium treats/indulgence (e.g., fancy ice cream, desserts)",
+                        "Functional drinks (energy, electrolyte, vitamin/boost drinks)",
+                        "Specialty coffee/tea (cold brew, matcha, bubble tea)",
+                        {
+                            "value": "None of these",
+                            "isExclusive": true
+                        },
+                        {
+                            "value": "Unsure",
+                            "isExclusive": true
+                        }
+                    ],
+                    "colCount": 2
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "FB3",
+                    "title": "How often do you purchase takeaway food?",
+                    "isRequired": true,
+                    "choices": [
+                        "More than once a week",
+                        "About Weekly",
+                        "A few times a Month",
+                        "About Monthly",
+                        "Rarely",
+                        "Never"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "FB4",
+                    "title": "How often do you visit cafés?",
+                    "isRequired": true,
+                    "choices": [
+                        "More than once a week",
+                        "About Weekly",
+                        "A few times a Month",
+                        "About Monthly",
+                        "Rarely",
+                        "Never"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "FB5",
+                    "title": "What would you say your diet most aligns with?",
+                    "isRequired": true,
+                    "choices": [
+                        "No specific diet",
+                        "Mixed (I eat a bit of everything)",
+                        "Vegetarian",
+                        "Vegan",
+                        "Pescatarian",
+                        "Low carb/keto",
+                        "Halal",
+                        "Kosher",
+                        "Carnivore (I only eat meat)",
+                        "Allergies/intolerances (e.g., gluten-free)"
+                    ],
+                    "showOtherItem": true,
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say",
+                    "otherText": "Other (please specify)",
+                    "colCount": 2
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "FB6_Meat",
+                    "title": "Compared to a year ago, your meat consumption is…",
+                    "isRequired": true,
+                    "choices": [
+                        "More",
+                        "Less",
+                        "Same",
+                        "I don't eat meat",
+                        "Unsure"
+                    ]
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "FB7",
+                    "title": "Are you currently trying to reduce your sugar intake?",
+                    "isRequired": true,
+                    "choices": [
+                        "No",
+                        "Yes",
+                        "Unsure"
+                    ],
+                    "showNoneItem": true,
+                    "noneText": "Prefer not to say"
+                },
+                {
+                    "type": "radiogroup",
+                    "name": "FB9",
+                    "title": "Compared with 12 months ago, would you say your overall eating and drinking habits are:",
+                    "isRequired": true,
+                    "choices": [
+                        "A lot healthier",
+                        "A little healthier",
+                        "About the same",
+                        "A little less healthy",
+                        "A lot less healthy",
+                        "Not sure / Prefer not to say"
+                    ]
+                },
+                {
+                    "type": "matrix",
+                    "name": "FB12",
+                    "title": "Over the last week, how often have you eaten each of the following meals at home?",
+                    "isRequired": true,
+                    "columns": [
+                        "Never",
+                        "1 time a week",
+                        "2–3 times a week",
+                        "4–6 times a week",
+                        "Once a day",
+                        "More than once a day",
+                        "Not applicable"
+                    ],
+                    "rows": [
+                        "Breakfast out of home",
+                        "Lunch out of home",
+                        "Dinner out of home",
+                        "Snacks between meals"
+                    ]
+                }
+            ]
+        }
+    ],
+    "triggers": [
+        {
+            "type": "setvalue",
+            "expression": "{S3_Consent} notempty and ({S2_Country} != 'Australia' or {S3_Consent} != 'Yes')",
+            "setToName": "SURVEY_OUTCOME",
+            "setValue": "SCREEN_OUT"
+        },
+        {
+            "type": "setvalue",
+            "expression": "{S2_Country} = 'Australia' and {S3_Consent} = 'Yes'",
+            "setToName": "SURVEY_OUTCOME",
+            "setValue": "COMPLETE"
+        },
+        {
+            "type": "complete",
+            "expression": "{SURVEY_OUTCOME} = 'SCREEN_OUT'"
+        }
+    ],
+    "calculatedValues": [
+        {
+            "name": "SURVEY_OUTCOME",
+            "expression": "({S2_Country} != 'Australia' or {S3_Consent} != 'Yes') ? 'SCREEN_OUT' : 'COMPLETE'",
+            "includeIntoResult": true
+        }
+    ],
+    "showProgressBar": true,
+    "progressBarLocation": "top",
+    "completeText": "Next"
+}
