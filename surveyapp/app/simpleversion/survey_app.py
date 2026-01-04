@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from langchain_openai import ChatOpenAI
+import hashlib
 
 APP_DIR = Path(__file__).resolve().parent
 REPO_ROOT = APP_DIR
@@ -196,16 +197,122 @@ def _sql_literal(val: Any) -> str:
     s = s.replace("'", "''")
     return f"'{s}'"
 
+def _auto_chart_key(df: pd.DataFrame) -> str:
+    """Stable short key for a DataFrame based on columns + shape."""
+    s = ",".join(df.columns.astype(str)) + f":{df.shape}"
+    return "auto_chart_" + hashlib.md5(s.encode("utf-8")).hexdigest()
+
 def auto_chart(df: pd.DataFrame) -> None:
+    """
+    Heuristic chart chooser based on column datatypes (not specific column names).
+
+    Rules:
+      - If single column (categorical/non-numeric): show pie for few categories else bar counts.
+      - If two columns:
+          * (cat, numeric): bar x=cat, y=numeric
+          * (numeric, cat): bar x=cat, y=numeric (swap)
+          * (cat, cat): stacked bar using counts (x=first cat, color=second cat)
+          * (numeric, numeric): scatter
+      - If >=3 columns:
+          * If there is >=1 numeric and >=1 categorical: pick one numeric as y and up to two categoricals as x/color, aggregate as needed and show stacked/grouped bar
+          * Otherwise fallback to showing head of dataframe
+    """
     if df is None or df.empty:
         return
-    if df.shape[1] == 1:
-        c = df.columns[0]
-        vc = df[c].value_counts(dropna=False).reset_index()
-        vc.columns = [c, "count"]
-        st.plotly_chart(px.bar(vc, x=c, y="count"), use_container_width=True, key=f"auto_chart_{id(vc)}")
-    elif df.shape[1] >= 2 and pd.api.types.is_numeric_dtype(df[df.columns[1]]):
-        st.plotly_chart(px.bar(df, x=df.columns[0], y=df.columns[1]), use_container_width=True, key=f"auto_chart_{id(df)}")
+
+    cols = list(df.columns)
+    key = _auto_chart_key(df)
+
+    # classify columns by dtype
+    is_num = lambda c: pd.api.types.is_numeric_dtype(df[c])
+    num_cols = [c for c in cols if is_num(c)]
+    cat_cols = [c for c in cols if not is_num(c)]
+
+    try:
+        # 1-column: categorical counts
+        if len(cols) == 1:
+            c = cols[0]
+            vc = df[c].value_counts(dropna=False).reset_index()
+            vc.columns = [c, "count"]
+            if vc.shape[0] <= 8:
+                fig = px.pie(vc, names=c, values="count")
+            else:
+                fig = px.bar(vc, x=c, y="count")
+            st.plotly_chart(fig, use_container_width=True, key=key)
+            return
+
+        # 2-columns: choose chart by datatypes
+        if len(cols) == 2:
+            a, b = cols[0], cols[1]
+            a_num, b_num = is_num(a), is_num(b)
+
+            if a_num and b_num:
+                fig = px.scatter(df, x=a, y=b)
+                st.plotly_chart(fig, use_container_width=True, key=key)
+                return
+
+            if a_num and not b_num:
+                # prefer categorical on x axis for readability
+                fig = px.bar(df, x=b, y=a)
+                st.plotly_chart(fig, use_container_width=True, key=key)
+                return
+
+            if not a_num and b_num:
+                fig = px.bar(df, x=a, y=b)
+                st.plotly_chart(fig, use_container_width=True, key=key)
+                return
+
+            # both categorical -> stacked bar of counts (x=a, color=b)
+            # compute counts
+            agg = df.groupby([a, b]).size().reset_index(name="count")
+            pivot = agg.pivot(index=a, columns=b, values="count").fillna(0)
+            fig = px.bar(pivot.reset_index(), x=a, y=pivot.columns.tolist(), barmode="stack")
+            st.plotly_chart(fig, use_container_width=True, key=key)
+            return
+
+        # 3+ columns: try to pick one numeric and up to two categoricals
+        if len(cols) >= 3:
+            # prefer a numeric column to use as y
+            if num_cols and cat_cols:
+                y = num_cols[0]
+                x = cat_cols[0]
+                color = cat_cols[1] if len(cat_cols) > 1 else None
+                # aggregate if necessary (if values are already aggregated it's okay)
+                if color:
+                    agg = df.groupby([x, color])[y].sum().reset_index()
+                    fig = px.bar(agg, x=x, y=y, color=color, barmode="stack")
+                else:
+                    agg = df.groupby(x)[y].sum().reset_index()
+                    fig = px.bar(agg, x=x, y=y)
+                st.plotly_chart(fig, use_container_width=True, key=key)
+                return
+
+            # if no numeric but >=2 categoricals, show stacked counts for first two
+            if not num_cols and len(cat_cols) >= 2:
+                a, b = cat_cols[0], cat_cols[1]
+                agg = df.groupby([a, b]).size().reset_index(name="count")
+                pivot = agg.pivot(index=a, columns=b, values="count").fillna(0)
+                fig = px.bar(pivot.reset_index(), x=a, y=pivot.columns.tolist(), barmode="stack")
+                st.plotly_chart(fig, use_container_width=True, key=key)
+                return
+
+        # fallback: try a sensible 2-column plot if possible
+        if len(cols) >= 2 and num_cols:
+            # pick first categorical (or cast first non-numeric) and first numeric
+            x = cat_cols[0] if cat_cols else cols[0]
+            y = num_cols[0]
+            agg = df.groupby(x)[y].sum().reset_index()
+            fig = px.bar(agg, x=x, y=y)
+            st.plotly_chart(fig, use_container_width=True, key=key)
+            return
+
+    except Exception:
+        # final fallback: show a small table
+        st.dataframe(df.head(200), use_container_width=True)
+        return
+
+    # if nothing matched, show table
+    st.dataframe(df.head(200), use_container_width=True)
 
 # -----------------------------
 # Aggregation queries for dashboard
@@ -281,6 +388,14 @@ def checkbox_chart_data(con, pairs: List[Tuple[str, str]]) -> pd.DataFrame:
     df["proportion"] = df["count"] / df["total"].replace({0: 1})
     return df
 
+@st.cache_data(show_spinner=False)
+def cached_schema_context(parquet_path: str, cap: int) -> tuple[str, str]:
+    con, sql_to_header = build_duckdb_from_parquet(parquet_path)  # cached_resource
+    user_cols = get_user_sql_cols(sql_to_header)[:cap]
+    schema_for_llm = build_schema_context(con, user_cols, sql_to_header, for_llm=True)
+    schema_preview = build_schema_context(con, user_cols, sql_to_header, for_llm=False)
+    return schema_for_llm, schema_preview
+
 # -----------------------------
 # UI
 # -----------------------------
@@ -296,6 +411,16 @@ surveydef_path = str(REPO_ROOT / "PS_SurveyDefinition.json")
 
 con, sql_to_header = build_duckdb_from_parquet(responses_path)
 user_sql_cols = get_user_sql_cols(sql_to_header)
+schema_for_llm, schema_preview = cached_schema_context(responses_path, cap=1000)
+
+# initialize Q&A session_state keys once so their values persist across page switches
+st.session_state.setdefault("qa_question", "")
+st.session_state.setdefault("qa_sql_raw", "")
+st.session_state.setdefault("qa_sql_valid", "")
+st.session_state.setdefault("qa_res", None)
+st.session_state.setdefault("qa_answer", "")
+st.session_state.setdefault("qa_confidence", None)
+st.session_state.setdefault("qa_model_choice", "Deeper reasoning (GPT-4.1)")
 
 questions: Dict[str, SurveyQuestion] = {}
 if surveydef_path and Path(surveydef_path).exists():
@@ -463,16 +588,19 @@ else:
     #st.caption("Schema context is capped to keep prompts stable. Increase if needed.")
     cap = 1000 #st.slider("Max columns in schema context", 30, min(600, len(user_sql_cols)), min(220, len(user_sql_cols)), 10)
     schema_cols = user_sql_cols[:cap]
-    schema_for_llm = build_schema_context(con, schema_cols, sql_to_header, for_llm=True)
-    schema_preview = build_schema_context(con, schema_cols, sql_to_header, for_llm=False)
+    #schema_for_llm = build_schema_context(con, schema_cols, sql_to_header, for_llm=True)
+    #schema_preview = build_schema_context(con, schema_cols, sql_to_header, for_llm=False)
 
     with st.expander("Schema context (expand to see survey questions to help decide what to ask)"):
         st.text(schema_preview)
 
     # Model selector: "fast" -> gpt-4o-mini, "deeper reasoning" -> gpt-4.1 (default)
-    model_map = {"fast": "gpt-4o-mini", "deeper reasoning": "gpt-4.1"}
+    model_map = {"Fast (GPT-4o-mini)": "gpt-4o-mini", "Deeper reasoning (GPT-4.1)": "gpt-4.1"}
     model_label = st.radio("Model", ["Fast (GPT-4o-mini)", "Deeper reasoning (GPT-4.1)"], index=1, key="qa_model_choice")
     selected_model = model_map.get(model_label, "gpt-4.1")
+
+    # Restore and show previous run (if any) so returning users see last results immediately
+    # (previous run results are persisted in session_state; the question widget below will be pre-filled)
 
     # put the question + run button in a form so Ctrl+Enter submits as well as clicking Run
     with st.form("qa_form", clear_on_submit=False):
@@ -480,12 +608,11 @@ else:
         question = st.text_area("Question", height=120, key="qa_question")
         submit = st.form_submit_button("Run")
 
+    sql_raw = None
     if submit and question.strip():
         llm = ChatOpenAI(model=selected_model, temperature=0)
         prompt = f"{SYSTEM_SQL}\n\nSCHEMA:\n{schema_for_llm}\n\nQUESTION:\n{question}\n"
         sql_raw = llm.invoke(prompt).content
-    else:
-        sql_raw = None
 
     if sql_raw:
          try:
@@ -499,6 +626,7 @@ else:
                  st.code(extract_sql(sql_raw), language="sql")
              st.stop()
  
+         # Ask the LLM for an answer
          st.subheader("Answer")
          preview_csv = res.head(50).to_csv(index=False)
          answer_prompt = (
@@ -509,11 +637,33 @@ else:
          )
          answer = llm.invoke(answer_prompt).content
          st.write(answer)
- 
+
+         # persist the Q&A run results so switching pages preserves them
+         st.session_state["qa_sql_raw"] = sql_raw
+         st.session_state["qa_sql_valid"] = sql_valid
+         st.session_state["qa_res"] = res
+         st.session_state["qa_answer"] = answer
+         # leave confidence/structured parsing unchanged here (None)
+
          st.subheader("Result table")
          st.dataframe(res, use_container_width=True)
-         with st.expander("Auto chart (chart only shown if applicable)"):
+         with st.expander("Chart (only shown if applicable)"):
              auto_chart(res)
  
          with st.expander("Show SQL"):
              st.code(sql_valid, language="sql")
+    else:
+        # No new run this render — if there is a previous run, display it inline in the same widgets area
+        if st.session_state.get("qa_res") is not None:
+            st.subheader("Answer")
+            if st.session_state.get("qa_answer"):
+                st.write(st.session_state.get("qa_answer"))
+            conf = st.session_state.get("qa_confidence")
+            if conf is not None:
+                st.caption(f"Confidence: {conf}%")
+            st.subheader("Result table")
+            st.dataframe(st.session_state["qa_res"], use_container_width=True)
+            with st.expander("Chart (only shown if applicable)"):
+                auto_chart(st.session_state["qa_res"])
+            with st.expander("Show SQL"):
+                st.code(st.session_state.get("qa_sql_valid", st.session_state.get("qa_sql_raw", "")), language="sql")
