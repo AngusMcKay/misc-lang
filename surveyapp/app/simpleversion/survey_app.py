@@ -14,6 +14,15 @@ import hashlib
 APP_DIR = Path(__file__).resolve().parent
 REPO_ROOT = APP_DIR
 
+EXCLUDE_HEADERS = {
+    " Respondent Id",
+    "SURVEY_OUTCOME",
+    "D_Postcode",
+    "D_State",
+    "SurveyDateTime",
+    "S3_Consent",
+}
+
 st.set_page_config(page_title="Survey Explorer", layout="wide")
 
 # -----------------------------
@@ -52,7 +61,7 @@ def build_questions(defn: Dict[str, Any]) -> Dict[str, SurveyQuestion]:
     for p in defn.get("pages", []):
         for el in p.get("elements", []):
             name = el.get("name")
-            if not name:
+            if not name or name in EXCLUDE_HEADERS:
                 continue
             qtype = el.get("type", "")
             title = el.get("title", name)
@@ -63,17 +72,8 @@ def build_questions(defn: Dict[str, Any]) -> Dict[str, SurveyQuestion]:
     return qs
 
 # -----------------------------
-# DuckDB + schema helpers (scalable for large datasets)
+# DuckDB + schema helpers
 # -----------------------------
-EXCLUDE_HEADERS = {
-    " Respondent Id",
-    "SURVEY_OUTCOME",
-    "D_Postcode",
-    "D_State",
-    "SurveyDateTime",
-    "S3_Consent",
-}
-
 def to_sql_ident(col: str) -> str:
     """Make safe column names for DuckDB by lowercasing and stripping non-alphanumeric characters"""
     s = str(col).strip().lower()
